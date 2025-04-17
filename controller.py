@@ -2,7 +2,7 @@
 
 from grid_environment import GridEnvironment
 from grid_viewer import GridViewer
-from placeholder_organism import DummyOrganism
+from organism import Organism
 import numpy as np
 import pygame
 
@@ -23,7 +23,8 @@ def main():
         while True:
             r, c = np.random.randint(0, 50, size=2)
             speed = np.random.randint(1, 5)
-            if env.add_organism(DummyOrganism(position=(r, c), speed=speed)):
+            genome = [1, 1, speed, 1, 1]
+            if env.add_organism(Organism("ORG1", genome, 0, (r, c))):
                 break
 
     # Initialize PyGame visualization

@@ -1,6 +1,7 @@
 # Placeholder organism
 import numpy as np
 
+
 class DummyOrganism:
     """
     Placeholder ogranism,  datamembers accessed directly

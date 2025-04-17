@@ -6,10 +6,12 @@ from placeholder_organism import DummyOrganism
 import numpy as np
 import pygame
 
+
 # Variables for setup/testing
 GRID_SIZE = 50          # Determines size of environment
 NO_OF_ORGANISMS = 50
 FPS = 10                # Controls rate of display
+
 
 def main():
     # Initialize environment
@@ -41,5 +43,6 @@ def main():
         pygame.display.flip()                   # Updates content of entire display to screen
         viewer.clock.tick(FPS)                  # Controls tick rate, allowing program to run slower/faster
 
-if __name__ == "__main__" :
+
+if __name__ == "__main__":
     main()

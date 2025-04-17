@@ -11,7 +11,7 @@ class GridEnvironment:
     size: size of grid desired
     2 different np arrays of size (size x size) terrain and occupancy
     - filled with 0s - dtype uint8
-    organisms are stored in a python list datastructure
+    organisms are stored in a python list data structure
     """
 
     def __init__(self, size):

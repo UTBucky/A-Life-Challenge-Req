@@ -11,10 +11,11 @@ class GridViewer:
     """
     def __init__(self, environment, tile_size=10, sidebar_width=200):
         """
-        Stores an a-life environment to render, tilesize and sidebar are
+        Stores an a-life environment to render, tile size and sidebar are
         default 10/200 respectively
         """
         self.env = environment
+        self.env_size = environment.get_size()
         self.tile_size = tile_size
         self.sidebar_width = sidebar_width
 
@@ -35,49 +36,66 @@ class GridViewer:
         self.clock = pygame.time.Clock()
         self.font = pygame.font.SysFont("consolas", 20)
 
-    def draw(self):
+    def draw_screen(self):
         """
         Render the environment
         """
-
-        ts = self.tile_size
-        sw = self.sidebar_width
-        size = self.env.get_size()
-
         self.screen.fill((0, 0, 0))  # Clear background
-
         # --- Draw Grid Environment ---
-        for r in range(size):
-            for c in range(size):
+        for r in range(self.env_size):
+            for c in range(self.env_size):
                 color = (0, 105, 148)
                 pygame.draw.rect(
                     self.screen, color,
-                    pygame.Rect(c * ts + sw, r * ts, ts, ts)
+                    pygame.Rect(c * self.tile_size + self.sidebar_width,
+                                r * self.tile_size,
+                                self.tile_size,
+                                self.tile_size
+                                )
                 )
 
-        # Draw organisms
+    def draw_organisms(self):
+        """
+        Render organisms
+        """
         for org in self.env.get_organisms():
             r, c = org.position
             pygame.draw.rect(
                 self.screen, (255, 255, 0),
-                pygame.Rect(c * ts + sw + 2, r * ts + 2, ts - 4, ts - 4)
+                pygame.Rect(c * self.tile_size + self.sidebar_width + 2,
+                            r * self.tile_size + 2,
+                            self.tile_size - 4,
+                            self.tile_size - 4
+                            )
             )
 
-        # Draw the screen
+    def draw_sidebar(self):
+        """
+        Render sidebar
+        """
+        # Draw the sidebar
         pygame.draw.rect(
             self.screen, (30, 30, 30),
-            pygame.Rect(0, 0, sw, size * ts)
+            pygame.Rect(0, 0, self.sidebar_width, self.env_size * self.tile_size)
             )
 
-        # Generation counter
+    def draw_generation_stat(self):
+        """
+        Display generation counter
+        """
         gen_text = self.font.render(
             f"Generation: {self.env.get_generation()}", True, (255, 255, 255)
             )
         self.screen.blit(gen_text, (10, 10))
 
-        # continue rendering
-        pygame.display.flip()
-        self.clock.tick(30)
+    def draw_total_population_stat(self):
+        """
+        Display total population counter
+        """
+        gen_text = self.font.render(
+            f"Population: {len(self.env.get_organisms())}", True, (255, 255, 255)
+        )
+        self.screen.blit(gen_text, (10, 30))
 
     def handle_events(self):
         """

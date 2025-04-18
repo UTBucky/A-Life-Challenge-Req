@@ -31,7 +31,7 @@ class GridEnvironment:
         organism: inp custom class that contains genes and a method for moving
         r, c are rows/columns
         """
-        r, c = organism.position
+        r, c = organism.get_position()
         # Checks created organism is in bounds of board
         # and not within the occupancy array
         if self.in_bounds(r, c) and not self.occupancy[r, c]:
@@ -55,7 +55,7 @@ class GridEnvironment:
         # to use the speed method to sort (this documentation created before
         # full build organism was created)
         move_queue = sorted(
-            self._organisms, key=lambda o: o.speed, reverse=True
+            self._organisms, key=lambda o: o.get_speed(), reverse=True
             )
 
         # Track tiles visited this step to avoid collisions
@@ -65,7 +65,7 @@ class GridEnvironment:
 
         # ---If possible avoid python for loop in future
         for organism in move_queue:
-            r_old, c_old = organism.position
+            r_old, c_old = organism.get_position()
 
             # Temporarily free current tile
             self.occupancy[r_old, c_old] = False
@@ -73,10 +73,10 @@ class GridEnvironment:
             # Let organism decide its own move
             organism.move(self)  # <-- internal logic modifies .position
 
-            r_new, c_new = organism.position
+            r_new, c_new = organism.get_position()
 
             if not self.in_bounds(r_new, c_new):
-                organism.position = np.array([r_old, c_old])  # Revert
+                organism.set_position(np.array([r_old, c_old]))  # Revert
                 self.occupancy[r_old, c_old] = True
                 continue
 
@@ -89,7 +89,7 @@ class GridEnvironment:
                 visited[r_new, c_new] = True
             else:
                 # Revert move
-                organism.position = np.array([r_old, c_old])
+                organism.set_position(np.array([r_old, c_old]))
                 self.occupancy[r_old, c_old] = True
         self._generation += 1
 

@@ -1,48 +1,53 @@
-# Controller for running simulation through PyGame
-
-from grid_environment import GridEnvironment
-from grid_viewer import GridViewer
+from tdenvironment import TDEnvironment
+from tdenvironment import generate_fractal_terrain
+from viewer2dp import Viewer2D
 from organism import Organism
 import numpy as np
 import pygame
 
 
 # Variables for setup/testing
-GRID_SIZE = 50          # Determines size of environment
-NO_OF_ORGANISMS = 50
-FPS = 10                # Controls rate of display
+GRID_SIZE = 1000         # Determines size of environment
+NUM_ORGANISMS = 10000   # Attempt organism creation this many times
+FPS = 100              # Controls rate of display
 
 
 def main():
     # Initialize environment
-    env = GridEnvironment(GRID_SIZE)
+    env = TDEnvironment(GRID_SIZE, GRID_SIZE)
 
-    # Add dummy organisms - maybe add this as a method inside grid_environment
-    # to initially populate?
-    for _ in range(50):
-        while True:
-            r, c = np.random.randint(0, 50, size=2)
-            speed = np.random.randint(1, 5)
-            genome = [1, 1, speed, 1, 1]
-            if env.add_organism(Organism("ORG1", genome, 0, (r, c))):
-                break
+    # Generate terrain and apply terrain mask
+    raw_terrain = generate_fractal_terrain(GRID_SIZE, GRID_SIZE, seed=200)
+    env.set_terrain(raw_terrain)
+
+    # Vectorized organism creation
+    max_attempts = int(NUM_ORGANISMS)
+    rand_positions = np.random.randint(
+        0, GRID_SIZE, size=(max_attempts, 2)
+        ).astype(np.float32)
+    rand_speeds = np.random.randint(
+        1, 5, size=(max_attempts,)
+        ).astype(np.float32)
+
+    # Pre-make Organism references
+    org_refs = [Organism("ORG1", [1, 1, int(speed), 1, 1], 0, tuple(pos))
+                for speed, pos in zip(rand_speeds, rand_positions)]
+
+    # Batch insert
+    env.add_organisms(rand_positions, speeds=rand_speeds, org_refs=org_refs)
 
     # Initialize PyGame visualization
-    viewer = GridViewer(env)
+    viewer = Viewer2D(env)
 
-    # Run PyGame methods - This could probably be combined into an "execute" method
-    # in grid_viewer, but leaving here for now to make easier to see what is running
+    # Run PyGame methods - could probably be combined into an "execute" method
+    # in grid_viewer, here for now to make easier to see what is running
     running = True
     while running:
-        running = viewer.handle_events()        # Right now just checks for pygame quit event
-        env.step()                              # Progresses simulation 1 turn (generation)
-        viewer.draw_screen()                    # Displays visual of environment
-        viewer.draw_organisms()                 # Displays each organism based on current position
-        viewer.draw_sidebar()                   # Displays sidebar
-        viewer.draw_generation_stat()           # Creates & displays generation no. text
-        viewer.draw_total_population_stat()     # Creates and displays population text
-        pygame.display.flip()                   # Updates content of entire display to screen
-        viewer.clock.tick(FPS)                  # Controls tick rate, allowing program to run slower/faster
+        running = viewer.handle_events()        # checks for pygame quit event
+        env.step()                              # Progresses simulation 1 gen
+        viewer.draw_screen()                    # Renders environment
+        pygame.display.flip()                   # Updates content to screen
+        viewer.clock.tick(FPS)                  # Controls animation speed
 
 
 if __name__ == "__main__":

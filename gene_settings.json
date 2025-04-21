@@ -1,0 +1,10 @@
+{
+    "size": [1, 1, 5], 
+    "max_age": [50, 50, 500],
+    "speed": [0, 0, 10],
+    "min_temp_tol": [0, -100, 0],
+    "max_temp_tol": [70, 70, 100],
+    "digestion_efficiency": [1, 1, 10],
+    "reproduction efficiency": [1, 1, 10],
+    "Mutation Affinity": [1, 0, 10]
+}

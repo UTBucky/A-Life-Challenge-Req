@@ -96,7 +96,7 @@ class Organism:
         child_genome = self._genome.replicate_genes()
         return Organism(self._name, child_genome, 0, child_position)
 
-    def move(self, env):
+    def move(self):
         """
         Organism takes its turn, returning its desired action and new location
 
@@ -116,20 +116,4 @@ class Organism:
             return "reproduce"
 
         else:
-            deltas = [(-1, 0), (1, 0), (0, -1), (0, 1)]
-            np.random.shuffle(deltas)
-
-            i = 0
-            dr, dc = deltas[i]
-            r_new = self._position[0] + dr
-            c_new = self._position[1] + dc
-
-            while not env.in_bounds(r_new, c_new) and i < len(deltas):
-                i += 1
-                dr, dc = deltas[i]
-                r_new = self._position[0] + dr
-                c_new = self._position[1] + dc
-
-            self._position = np.array([r_new, c_new])
-
             return "move"

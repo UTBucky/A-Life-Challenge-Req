@@ -16,20 +16,27 @@ class Organism:
         Initialize an organism object.
 
         :param name: A string
-        :param genome: A List # TODO Implement genes, for now list of integers
+        :param genome: An object
         :param curr_age: An integer
         """
 
         self._name = name
         self._genome = genome
-        self._curr_age = curr_age
-        self._size = genome[0]
         self._position = np.array(position, dtype=int)
-        self._max_age = genome[1]
-        self._speed = genome[2]
-        self._min_temp_tol = genome[3]
-        self._max_temp_tol = genome[4]
-        self._hunger = self._size // 2
+        self._curr_age = curr_age
+
+        # Extract gene values from genome
+        self._size = genome.get_genes()["size"]
+        self._speed = genome.get_genes()["speed"]
+        self._max_age = genome.get_genes()["max_age"]
+        self._energy_capacity = genome.get_genes()["energy_capacity"]
+        self._move_eff = genome.get_genes()["move_eff"]
+        self._reproduction_eff = genome.get_genes()["reproduction_eff"]
+        self._min_temp_tol = genome.get_genes()["min_temp_tol"]
+        self._max_temp_tol = genome.get_genes()["max_temp_tol"]
+        self._energy_gathering = genome.get_genes()["energy_gathering"]
+        self._energy_prod = genome.get_genes()["energy_prod"]
+        self._movement_affordance = genome.get_genes()["move_affordance"]
 
     # Get methods for each private data member
     def get_name(self):
@@ -73,12 +80,15 @@ class Organism:
         self._curr_age = new_age
 
     # Other methods
-    def reproduce(self, gene_pool, mutation_rate):
+    def reproduce(self, child_position) -> object:
         """
-        TODO: implement reproduction
+        Creates a child organism based on the genome of the parent.
+
+        :param child_position: A tuple
         """
 
-        pass
+        child_genome = self._genome.replicate()
+        return Organism(self._name, child_genome, 0, child_position)
 
     def move(self, env):
         """

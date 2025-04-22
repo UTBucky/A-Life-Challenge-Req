@@ -34,7 +34,6 @@ class Organism:
         self._reproduction_eff = genome.get_genes()["reproduction_eff"]
         self._min_temp_tol = genome.get_genes()["min_temp_tol"]
         self._max_temp_tol = genome.get_genes()["max_temp_tol"]
-        self._energy_gathering = genome.get_genes()["energy_gathering"]
         self._energy_prod = genome.get_genes()["energy_prod"]
         self._movement_affordance = genome.get_genes()["move_affordance"]
 
@@ -63,11 +62,14 @@ class Organism:
     def get_max_temp_tol(self):
         return self._max_temp_tol
 
-    def get_hunger(self):
-        return self._hunger
+    def get_energy_capacity(self):
+        return self._energy_capacity
 
     def get_position(self):
         return self._position
+
+    def get_move_eff(self):
+        return self._
 
     # Set methods
     def set_hunger(self, new_level):
@@ -87,7 +89,7 @@ class Organism:
         :param child_position: A tuple
         """
 
-        child_genome = self._genome.replicate()
+        child_genome = self._genome.replicate_genes()
         return Organism(self._name, child_genome, 0, child_position)
 
     def move(self, env):

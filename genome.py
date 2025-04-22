@@ -30,13 +30,15 @@ class Genome:
         replicated_genome = {}
 
         for gene in self._genes:
-            if random.random() < self._mutation_rate:
+            if random.random() > self._mutation_rate:
                 replicated_genome[gene] = self._genes[gene]
 
             else:
                 replicated_genome[gene] = self._genes[gene].mutate()
 
-        return replicated_genome
+        child_genome = Genome(self._mutation_rate, replicated_genome)
+
+        return child_genome
 
 
 class Gene:
@@ -49,9 +51,9 @@ class Gene:
         Initialize a gene object.
 
         :param name: A string
-        :param val: An integer
-        :param min_val: An integer
-        :param max_val: An integer
+        :param val: An integer or float
+        :param min_val: An integer or float
+        :param max_val: An integer or float
         """
 
         self._name = name
@@ -64,8 +66,25 @@ class Gene:
         Mutates the gene within the minimum and maximum value of the gene.
         """
 
-        new_val = random.randint(self._min_val, self._max_val)
+        if self._val is int:
+            new_val = random.randint(self._min_val, self._max_val)
+
+        else:
+            new_val = random.uniform(self._min_val, self._max_val)
+
         return Gene(self._name, new_val, self._min_val, self._max_val)
+
+    def get_name(self):
+        return self._name
+
+    def get_val(self):
+        return self._val
+
+    def get_min_val(self):
+        return self._min_val
+
+    def get_max_val(self):
+        return self._max_val
 
 
 class EnergyGene(Gene):
@@ -83,17 +102,17 @@ class EnergyGene(Gene):
 
     def mutate(self) -> object:
         new_option = random.choice(self._options)
-        new_val = random.randint(self._min_val, self._max_val)
+        new_val = random.uniform(self._min_val, self._max_val)
         return EnergyGene(new_option, new_val, self._min_val, self._max_val)
 
 
-class MovementGene(Gene):
+class MoveGene(Gene):
     """
     Defines movement affordances of organism.
     """
 
-    def __init__(self, name, val, min_val, max_val):
-        super().__init__(name, 0, 0, 0)
+    def __init__(self, name, val=0, min_val=0, max_val=0):
+        super().__init__(name, val, min_val, max_val)
 
         self._options = ["aquatic", "volant", "terrestrial"]
 
@@ -102,5 +121,4 @@ class MovementGene(Gene):
 
     def mutate(self) -> object:
         new_option = random.choice(self._options)
-        new_val = random.randint(self._min_val, self._max_val)
-        return MovementGene(new_option, new_val, self._min_val, self._max_val)
+        return MoveGene(new_option, self._val, self._min_val, self._max_val)

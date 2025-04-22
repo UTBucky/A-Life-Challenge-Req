@@ -3,7 +3,6 @@ from tdenvironment import generate_fractal_terrain
 from viewer2dp import Viewer2D
 from organism import Organism
 import numpy as np
-import pygame
 
 
 # Variables for setup/testing

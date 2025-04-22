@@ -46,5 +46,6 @@ def main():
         env.step()                              # Progresses simulation 1 gen
         viewer.draw_screen()                    # Renders environment
 
+
 if __name__ == "__main__":
     main()

@@ -88,10 +88,7 @@ def test_organism_attributes():
 
 def test_organism_move_and_die():
     org = Organism("TestOrg", org_genome, 5, (10, 10))
-
-    class DummyEnv:
-        def in_bounds(self, x, y): return 0 <= x < 100 and 0 <= y < 100
-    result = org.move(DummyEnv())
+    result = org.move()
     assert result in ("move", "die", "reproduce")
 
 

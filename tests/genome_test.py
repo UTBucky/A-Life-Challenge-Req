@@ -1,31 +1,31 @@
-import pytest
 import json
 from organism import Organism
-from genome import *
+import genome
 
 genes_file = open("gene_settings.json")
 genes_data = json.load(genes_file)
 gene_pool = {}
 org_genes = {}
-org_genome = Genome(0.4, org_genes)
+org_genome = genome.Genome(0.4, org_genes)
 
 for gene in genes_data:
 
     if gene == "energy_prod":
         for type in genes_data[gene]:
             type_sett = genes_data[gene][type]
-            gene_pool[gene] = EnergyGene(type, type_sett[1],
-                                         type_sett[0], type_sett[2])
+            gene_pool[gene] = genome.EnergyGene(type, type_sett[1],
+                                                type_sett[0], type_sett[2])
         org_genes[gene] = gene_pool[gene]
 
     elif gene == "move_affordance":
         for type in genes_data[gene]:
-            gene_pool[gene] = MoveGene(type)
+            gene_pool[gene] = genome.MoveGene(type)
         org_genes[gene] = gene_pool[gene]
 
     else:
         gene_sett = genes_data[gene]
-        gene_pool[gene] = Gene(type, gene_sett[1], gene_sett[0],  gene_sett[2])
+        gene_pool[gene] = genome.Gene(type, gene_sett[1],
+                                      gene_sett[0], gene_sett[2])
         org_genes[gene] = gene_pool[gene]
 
 
@@ -40,8 +40,9 @@ def test_genes_loaded_from_file():
     for gene in org1_genome:
         assert org1_genome[gene].get_val() == gene_pool[gene].get_val()
 
+
 def test_organism_mutated_reproduction():
-    org_genome = Genome(1.0, org_genes)
+    org_genome = genome.Genome(1.0, org_genes)
     org = Organism("ORG1", org_genome, 0, (0, 0))
     child = org.reproduce((1, 1))
 

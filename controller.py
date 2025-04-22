@@ -9,7 +9,6 @@ import pygame
 # Variables for setup/testing
 GRID_SIZE = 1000         # Determines size of environment
 NUM_ORGANISMS = 10000   # Attempt organism creation this many times
-FPS = 100              # Controls rate of display
 
 
 def main():
@@ -46,9 +45,6 @@ def main():
         running = viewer.handle_events()        # checks for pygame quit event
         env.step()                              # Progresses simulation 1 gen
         viewer.draw_screen()                    # Renders environment
-        pygame.display.flip()                   # Updates content to screen
-        viewer.clock.tick(FPS)                  # Controls animation speed
-
 
 if __name__ == "__main__":
     main()

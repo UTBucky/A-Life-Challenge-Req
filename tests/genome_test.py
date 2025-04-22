@@ -1,35 +1,9 @@
-import json
 from organism import Organism
 import genome
+import load_genes
 
-genes_file = open("gene_settings.json")
-genes_data = json.load(genes_file)
-gene_pool = {}
-org_genes = {}
-org_genome = genome.Genome(0.4, org_genes)
-
-for gene in genes_data:
-
-    if gene == "energy_prod":
-        for type in genes_data[gene]:
-            type_sett = genes_data[gene][type]
-            gene_pool[gene] = genome.EnergyGene(type, type_sett[1],
-                                                type_sett[0], type_sett[2])
-        org_genes[gene] = gene_pool[gene]
-
-    elif gene == "move_affordance":
-        for type in genes_data[gene]:
-            gene_pool[gene] = genome.MoveGene(type)
-        org_genes[gene] = gene_pool[gene]
-
-    else:
-        gene_sett = genes_data[gene]
-        gene_pool[gene] = genome.Gene(type, gene_sett[1],
-                                      gene_sett[0], gene_sett[2])
-        org_genes[gene] = gene_pool[gene]
-
-
-genes_file.close()
+gene_pool = load_genes.load_genes_from_file()
+org_genome = genome.Genome(0.4, gene_pool)
 
 
 def test_genes_loaded_from_file():
@@ -42,7 +16,7 @@ def test_genes_loaded_from_file():
 
 
 def test_organism_mutated_reproduction():
-    org_genome = genome.Genome(1.0, org_genes)
+    org_genome = genome.Genome(1.0, gene_pool)
     org = Organism("ORG1", org_genome, 0, (0, 0))
     child = org.reproduce((1, 1))
 

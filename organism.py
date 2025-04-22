@@ -31,11 +31,12 @@ class Organism:
         self._max_age = genome.get_genes()["max_age"]
         self._energy_capacity = genome.get_genes()["energy_capacity"]
         self._move_eff = genome.get_genes()["move_eff"]
-        self._reproduction_eff = genome.get_genes()["reproduction_eff"]
+        self._reproduction_eff = genome.get_genes()["rep_eff"]
         self._min_temp_tol = genome.get_genes()["min_temp_tol"]
         self._max_temp_tol = genome.get_genes()["max_temp_tol"]
         self._energy_prod = genome.get_genes()["energy_prod"]
-        self._movement_affordance = genome.get_genes()["move_affordance"]
+        self._movement_affordance = genome.get_genes()["move_aff"]
+        self._energy = self._energy_capacity.get_val() // 2
 
     # Get methods for each private data member
     def get_name(self):
@@ -65,11 +66,14 @@ class Organism:
     def get_energy_capacity(self):
         return self._energy_capacity
 
+    def get_energy(self):
+        return self._energy
+
     def get_position(self):
         return self._position
 
     def get_move_eff(self):
-        return self._
+        return self._move_eff
 
     # Set methods
     def set_hunger(self, new_level):
@@ -101,10 +105,14 @@ class Organism:
         :return: A string that declares action to take
         """
 
-        if self._hunger <= 0 or self._curr_age >= self._max_age:
+        energy_capacity = self._energy_capacity.get_val()
+        reproduction_efficiency = self._reproduction_eff.get_val()
+        reproduction_threshold = energy_capacity * reproduction_efficiency
+
+        if self._energy <= 0 or self._curr_age >= self._max_age:
             return "die"
 
-        elif self._hunger >= self._size:
+        elif self._energy >= reproduction_threshold:
             return "reproduce"
 
         else:

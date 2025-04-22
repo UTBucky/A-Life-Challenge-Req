@@ -3,6 +3,8 @@ from tdenvironment import generate_fractal_terrain
 from viewer2dp import Viewer2D
 from organism import Organism
 import numpy as np
+import load_genes
+import genome
 
 
 # Variables for setup/testing
@@ -28,7 +30,10 @@ def main():
         ).astype(np.float32)
 
     # Pre-make Organism references
-    org_refs = [Organism("ORG1", [1, 1, int(speed), 1, 1], 0, tuple(pos))
+    gene_pool = load_genes.load_genes_from_file()
+    # TODO: Load mutation rate from setting
+    org_genome = genome.Genome(0.4, gene_pool)
+    org_refs = [Organism("ORG1", org_genome, 0, tuple(pos))
                 for speed, pos in zip(rand_speeds, rand_positions)]
 
     # Batch insert

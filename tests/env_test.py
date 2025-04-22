@@ -4,10 +4,15 @@ import os
 import traceback
 import pygame
 import pytest
+import load_genes
+import genome
 from tdenvironment import TDEnvironment, generate_fractal_terrain
 from organism import Organism
 from viewer2dp import Viewer2D
 os.environ["SDL_VIDEODRIVER"] = "dummy"  # Headless testing for PyGame
+
+gene_pool = load_genes.load_genes_from_file()
+org_genome = genome.Genome(0.4, gene_pool)
 
 
 # Fixtures
@@ -33,8 +38,8 @@ def viewer_env():
 def test_add_and_step_organisms(basic_env):
     positions = np.array([[10, 10], [20, 20]], dtype=np.float32)
     speeds = np.array([1.0, 1.0], dtype=np.float32)
-    org_refs = [Organism("Test1", [1, 1, 1, 1, 1], 0, (10, 10)),
-                Organism("Test2", [1, 1, 1, 1, 1], 0, (20, 20))]
+    org_refs = [Organism("Test1", org_genome, 0, (10, 10)),
+                Organism("Test2", org_genome, 0, (20, 20))]
     basic_env.add_organisms(positions, speeds=speeds, org_refs=org_refs)
     assert basic_env.organisms.shape[0] == 2
     basic_env.step()
@@ -46,8 +51,8 @@ def test_soft_remove_dead(basic_env):
     positions = np.array([[10, 10], [20, 20]], dtype=np.float32)
     speeds = np.array([1.0, 1.0], dtype=np.float32)
     org_refs = [
-        Organism("Dead", [1, 1, 1, 1, 1], 0, (10, 10)),
-        Organism("Alive", [1, 1, 1, 1, 1], 0, (20, 20))
+        Organism("Dead", org_genome, 0, (10, 10)),
+        Organism("Alive", org_genome, 0, (20, 20))
     ]
 
     # Add both organisms to the environment
@@ -73,17 +78,16 @@ def test_generate_terrain():
 
 # Organism Tests
 def test_organism_attributes():
-    genome = [4, 10, 3, 1, 5]
     position = (5, 5)
-    org = Organism("TestOrg", genome, 2, position)
+    org = Organism("TestOrg", org_genome, 2, position)
+    org.get_size().set_val(4)
     assert org.get_name() == "TestOrg"
-    assert org.get_size() == 4
+    assert org.get_size().get_val() == 4
     assert org.get_position().tolist() == list(position)
 
 
 def test_organism_move_and_die():
-    genome = [4, 5, 1, 1, 5]
-    org = Organism("TestOrg", genome, 5, (10, 10))
+    org = Organism("TestOrg", org_genome, 5, (10, 10))
 
     class DummyEnv:
         def in_bounds(self, x, y): return 0 <= x < 100 and 0 <= y < 100

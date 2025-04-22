@@ -74,6 +74,7 @@ class Gene:
 
         return Gene(self._name, new_val, self._min_val, self._max_val)
 
+    # Get methods
     def get_name(self):
         return self._name
 
@@ -86,16 +87,20 @@ class Gene:
     def get_max_val(self):
         return self._max_val
 
+    # Set methods
+    def set_val(self, new_val):
+        self._val = new_val
+
 
 class EnergyGene(Gene):
     """
     Defines the energy gathering method of the organism.
     """
 
-    def __init__(self, name, val, min_val, max_val):
+    def __init__(self, name, val, min_val, max_val, options):
         super().__init__(name, val, min_val, max_val)
 
-        self._options = ["heterotroph", "autotroph", "parasite"]
+        self._options = options
 
         if self._name not in self._options:
             raise ValueError(f"{self._name} is not a valid energy gene type.")
@@ -103,7 +108,11 @@ class EnergyGene(Gene):
     def mutate(self) -> object:
         new_option = random.choice(self._options)
         new_val = random.uniform(self._min_val, self._max_val)
-        return EnergyGene(new_option, new_val, self._min_val, self._max_val)
+        return EnergyGene(new_option, new_val, self._min_val, self._max_val,
+                          self._options)
+
+    def get_options(self):
+        return self._options
 
 
 class MoveGene(Gene):
@@ -111,14 +120,17 @@ class MoveGene(Gene):
     Defines movement affordances of organism.
     """
 
-    def __init__(self, name, val=0, min_val=0, max_val=0):
+    def __init__(self, name, options, val=0, min_val=0, max_val=0):
         super().__init__(name, val, min_val, max_val)
 
-        self._options = ["aquatic", "volant", "terrestrial"]
+        self._options = options
 
         if self._name not in self._options:
             raise ValueError(f"{self._name} is not a valid move gene type.")
 
+    def get_options(self):
+        return self._options
+
     def mutate(self) -> object:
         new_option = random.choice(self._options)
-        return MoveGene(new_option, self._val, self._min_val, self._max_val)
+        return MoveGene(new_option, self._options)

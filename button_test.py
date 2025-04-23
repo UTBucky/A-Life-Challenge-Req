@@ -59,6 +59,7 @@ def test_create_load_button_returns_button(dummy_screen, dummy_font):
     btn = create_load_button(dummy_screen, dummy_font)
     assert isinstance(btn, Button)
 
+
 def test_create_skip_button_returns_button(dummy_screen, dummy_font):
     btn = create_skip_button(dummy_screen, dummy_font)
     assert isinstance(btn, Button)

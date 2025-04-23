@@ -53,10 +53,10 @@ def create_stop_start_button(screen, font, running):
     """
     stop_start_button = Button(pygame.Rect(10, 400, 100, 35),
                                "Pause" if running else "Start",
-                                screen,
-                                color = (89, 236, 52),
-                                font = font
-                                )
+                               screen,
+                               color=(89, 236, 52),
+                               font=font
+                               )
 
     return stop_start_button
 

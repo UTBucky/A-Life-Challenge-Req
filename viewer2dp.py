@@ -52,7 +52,6 @@ class Viewer2D:
         self._load_button = create_load_button(self.screen, self.font)
         self._skip_button = create_skip_button(self.screen, self.font)
 
-
     def is_running(self):
         """Returns current run state (True or False)"""
         return self._running

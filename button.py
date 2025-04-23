@@ -14,13 +14,13 @@ class Button:
         color -- the color of the button, a tuple with 3 values for RGB
     """
     def __init__(self,
-                 rectangle = pygame.Rect(10, 600, 100, 50),
-                 text = "Insert text",
-                 screen = None,
-                 text_offset_x = 35,
-                 text_offset_y = 8,
-                 color = (200, 0, 0),
-                 font = None
+                 rectangle=pygame.Rect(10, 600, 100, 50),
+                 text="Insert text",
+                 screen=None,
+                 text_offset_x=35,
+                 text_offset_y=8,
+                 color=(200, 0, 0),
+                 font=None
                  ):
         self._rectangle = rectangle
         self._text = text
@@ -46,20 +46,20 @@ class Button:
                           )
 
 
-
-def create_stop_start_button(screen,font, running):
+def create_stop_start_button(screen, font, running):
     """
     Draws a single button with that shows start/stop depending on run state
     Returns rectangle object for mouse click check
     """
     stop_start_button = Button(pygame.Rect(10, 400, 100, 35),
-                          "Pause" if running else "Start",
-                          screen,
-                          color = (89, 236, 52),
-                          font = font
-                          )
+                               "Pause" if running else "Start",
+                                screen,
+                                color = (89, 236, 52),
+                                font = font
+                                )
 
     return stop_start_button
+
 
 def create_save_button(screen, font):
     """
@@ -69,11 +69,12 @@ def create_save_button(screen, font):
     save_button = Button(pygame.Rect(10, 450, 100, 35),
                          "Save",
                          screen,
-                         color = (52, 52, 236),
-                         font = font
+                         color=(52, 52, 236),
+                         font=font
                          )
 
     return save_button
+
 
 def create_load_button(screen, font):
     """
@@ -83,11 +84,12 @@ def create_load_button(screen, font):
     load_button = Button(pygame.Rect(10, 500, 100, 35),
                          "Load",
                          screen,
-                         color = (52, 157, 236),
-                         font = font
+                         color=(52, 157, 236),
+                         font=font
                          )
 
     return load_button
+
 
 def create_skip_button(screen, font):
     """
@@ -97,10 +99,8 @@ def create_skip_button(screen, font):
     skip_button = Button(pygame.Rect(10, 550, 100, 35),
                          "Skip",
                          screen,
-                         color = (146, 38, 162),
-                         font = font
+                         color=(146, 38, 162),
+                         font=font
                          )
 
     return skip_button
-
-

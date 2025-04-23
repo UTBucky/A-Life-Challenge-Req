@@ -5,13 +5,16 @@ from viewer2dp import Viewer2D
 
 pygame.init()
 
+
 @pytest.fixture
 def dummy_screen():
     return pygame.Surface((400, 400))
 
+
 @pytest.fixture
 def dummy_font():
     return pygame.font.SysFont(None, 36)
+
 
 @pytest.fixture
 def button(dummy_screen):
@@ -21,13 +24,16 @@ def button(dummy_screen):
         text="Start"
     )
 
+
 class DummyEnvironment:
     width = 50
     height = 50
 
+
 @pytest.fixture
 def dummy_env():
     return DummyEnvironment()
+
 
 @pytest.fixture
 def viewer(dummy_env):
@@ -38,13 +44,16 @@ def test_button_draw_no_crash(button):
     # Just checks that draw_button runs without crashing
     button.draw_button()
 
+
 def test_create_stop_start_button_returns_button(dummy_screen, dummy_font):
     btn = create_stop_start_button(dummy_screen, dummy_font, True)
     assert isinstance(btn, Button)
 
+
 def test_create_save_button_returns_button(dummy_screen, dummy_font):
     btn = create_save_button(dummy_screen, dummy_font)
     assert isinstance(btn, Button)
+
 
 def test_create_load_button_returns_button(dummy_screen, dummy_font):
     btn = create_load_button(dummy_screen, dummy_font)
@@ -53,6 +62,7 @@ def test_create_load_button_returns_button(dummy_screen, dummy_font):
 def test_create_skip_button_returns_button(dummy_screen, dummy_font):
     btn = create_skip_button(dummy_screen, dummy_font)
     assert isinstance(btn, Button)
+
 
 def test_handle_events_toggle_running(viewer):
     # Tests that start/stop button correctly sets _running attribute to true/false
@@ -69,5 +79,3 @@ def test_handle_events_toggle_running(viewer):
     pygame.event.post(pygame.event.Event(pygame.MOUSEBUTTONDOWN, {"pos": center_pos}))
     viewer.handle_events()
     assert viewer._running is True
-
-

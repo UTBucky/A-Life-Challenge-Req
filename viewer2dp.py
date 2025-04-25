@@ -4,6 +4,7 @@
 
 import pygame
 import numpy as np
+from button import create_stop_start_button, create_save_button, create_load_button, create_skip_button
 
 
 class Viewer2D:
@@ -42,6 +43,19 @@ class Viewer2D:
         self.scale_x = self.main_area[0] / self.env.width
         self.scale_y = self.main_area[1] / self.env.height
 
+        # Flag for running state, used by start/stop button
+        self._running = True
+
+        # Creates reference to button objects for use in draw/handle_event functions
+        self._stop_start_button = create_stop_start_button(self.screen, self.font, self._running)
+        self._save_button = create_save_button(self.screen, self.font)
+        self._load_button = create_load_button(self.screen, self.font)
+        self._skip_button = create_skip_button(self.screen, self.font)
+
+    def is_running(self):
+        """Returns current run state (True or False)"""
+        return self._running
+
     def draw_screen(self):
         """Method that renders the environment"""
         self.screen.fill((0, 0, 0))  # Clear background
@@ -52,6 +66,12 @@ class Viewer2D:
         self.draw_generation_stat()
         self.draw_total_population_stat()
         self.draw_additional_stats()
+
+        # Draws all buttons
+        self._stop_start_button.draw_button()
+        self._save_button.draw_button()
+        self._load_button.draw_button()
+        self._skip_button.draw_button()
 
         pygame.display.flip()
         self.clock.tick(60)
@@ -172,4 +192,8 @@ class Viewer2D:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 return False
+            elif event.type == pygame.MOUSEBUTTONDOWN:
+                if self._stop_start_button.get_rectangle().collidepoint(event.pos):
+                    self._running = not self._running
+
         return True

@@ -1,12 +1,12 @@
 {
-    "size": [1, 1, 4], 
-    "speed": [1, 1, 5],
-    "max_age": [5, 5, 100],
-    "energy_capacity": [1, 1, 4],
-    "move_eff": [0.01, 0.05, 0.20],
-    "rep_eff": [0.1, 0.5, 1.0],
-    "min_temp_tol": [1, 2, 3],
-    "max_temp_tol": [1, 2, 3],
+    "size": [1.0, 4.0], 
+    "speed": [1.0, 5.0],
+    "max_age": [5.0, 100.0],
+    "energy_capacity": [1.0, 4.0],
+    "move_eff": [0.01, 0.20],
+    "rep_eff": [0.1, 1.0],
+    "min_temp_tol": [1.0, 3.0],
+    "max_temp_tol": [1.0, 3.0],
     "energy_prod": {
         "options":["heterotroph", "autotroph", "parasite"],
         "values": [0.1, 0.5, 1.0]

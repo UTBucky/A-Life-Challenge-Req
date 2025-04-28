@@ -3,16 +3,17 @@
 # Gene implementation
 
 import random
+import numpy as np
 
 
 class Genome:
 
-    def __init__(self, mutation_rate, genes):
+    def __init__(self, mutation_rate: float, genes: np.array):
         """
         Initialize a genome object.
 
         :param mutation_rate: A float
-        :param genes: A dictionary of gene objects
+        :param genes: A numpy array of genes
         """
 
         self._mutation_rate = mutation_rate

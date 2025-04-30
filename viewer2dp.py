@@ -198,12 +198,18 @@ class Viewer2D:
 
             # Button mouse click events (Stop/start, save, load, skip)
             elif event.type == pygame.MOUSEBUTTONDOWN:
-                if self._stop_start_button.get_rectangle().collidepoint(event.pos):
+                if self._stop_start_button.get_rectangle().collidepoint(event.pos):         # Start/stop
                     self._running = not self._running
-                if self._save_button.get_rectangle().collidepoint(event.pos):
-                    self._save_button.save_simulation("savefile.pkl", self.env, self.timestep)
-                if self._load_button.get_rectangle().collidepoint(event.pos):
-                    self.env, self.timestep = self._load_button.load_simulation("savefile.pkl")
+
+                if self._save_button.get_rectangle().collidepoint(event.pos):               # Save simulation
+                    self._save_button.save_simulation_prompt(self.env, self.timestep)
+
+                if self._load_button.get_rectangle().collidepoint(event.pos):               # Load simulation
+                    saved_env, saved_timestep = self._load_button.load_simulation_prompt()
+                    if saved_env is not None:
+                        self.env = saved_env
+                        self.timestep = saved_timestep
+
 
 
         return True

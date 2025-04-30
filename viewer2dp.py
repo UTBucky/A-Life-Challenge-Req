@@ -52,6 +52,9 @@ class Viewer2D:
         self._load_button = create_load_button(self.screen, self.font)
         self._skip_button = create_skip_button(self.screen, self.font)
 
+    def get_env(self):
+        return self.env
+
     def is_running(self):
         """Returns current run state (True or False)"""
         return self._running
@@ -74,7 +77,7 @@ class Viewer2D:
         self._skip_button.draw_button()
 
         pygame.display.flip()
-        self.clock.tick(60)
+        self.clock.tick(5)
         self.timestep += 1
 
     def draw_terrain(self):
@@ -192,8 +195,15 @@ class Viewer2D:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 return False
+
+            # Button mouse click events (Stop/start, save, load, skip)
             elif event.type == pygame.MOUSEBUTTONDOWN:
                 if self._stop_start_button.get_rectangle().collidepoint(event.pos):
                     self._running = not self._running
+                if self._save_button.get_rectangle().collidepoint(event.pos):
+                    self._save_button.save_simulation("savefile.pkl", self.env, self.timestep)
+                if self._load_button.get_rectangle().collidepoint(event.pos):
+                    self.env, self.timestep = self._load_button.load_simulation("savefile.pkl")
+
 
         return True

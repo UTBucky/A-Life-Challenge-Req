@@ -1,5 +1,6 @@
 # Class for creating buttons, contains functions to create standard required buttons
 import pygame
+import pickle
 
 
 class Button:
@@ -45,7 +46,19 @@ class Button:
                           self._rectangle.y + self._text_offset_y)
                           )
 
+    def save_simulation(self, filename, env, timestep):
+        """Uses pickle to serialize environment and viewer into a binary file"""
+        with open(filename, "wb") as f:
+            pickle.dump({'env': env, 'timestep': timestep}, f)
 
+    def load_simulation(self, filename):
+        """Uses pick deserialize and load environment and viewer object states"""
+        with open(filename, "rb") as f:
+            data = pickle.load(f)
+        return data['env'], data['timestep']
+
+
+# Portable functions to create the required button styles
 def create_stop_start_button(screen, font, running):
     """
     Draws a single button with that shows start/stop depending on run state

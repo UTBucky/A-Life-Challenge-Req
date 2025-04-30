@@ -209,7 +209,4 @@ class Viewer2D:
                     if saved_env is not None:
                         self.env = saved_env
                         self.timestep = saved_timestep
-
-
-
         return True

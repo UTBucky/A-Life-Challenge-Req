@@ -4,21 +4,15 @@ import os
 import traceback
 import pygame
 import pytest
-import load_genes
-import genome
-from tdenvironment import TDEnvironment, generate_fractal_terrain
-from organism import Organism
+from environment import Environment, generate_fractal_terrain
 from viewer2dp import Viewer2D
 os.environ["SDL_VIDEODRIVER"] = "dummy"  # Headless testing for PyGame
-
-gene_pool = load_genes.load_genes_from_file()
-org_genome = genome.Genome(0.4, gene_pool)
 
 
 # Fixtures
 @pytest.fixture
 def basic_env():
-    env = TDEnvironment(100, 100)
+    env = Environment(100, 100)
     env.set_terrain(np.zeros((100, 100), dtype=np.float32))
     return env
 
@@ -26,70 +20,52 @@ def basic_env():
 @pytest.fixture
 def viewer_env():
     pygame.init()
-    env = TDEnvironment(10, 10)
+    env = Environment(10, 10)
     terrain = np.zeros((10, 10), dtype=np.float32)
     terrain[2:5, 2:5] = -0.5  # Water patch
     env.set_terrain(terrain)
-    env.add_organisms(np.array([[5, 5]], dtype=np.float32))
+    env.get_organisms().spawn_initial_organisms(1)
     return Viewer2D(env, window_size=(300, 300), sidebar_width=50)
 
 
-# TDEnvironment Tests
-def test_add_and_step_organisms(basic_env):
-    positions = np.array([[10, 10], [20, 20]], dtype=np.float32)
-    speeds = np.array([1.0, 1.0], dtype=np.float32)
-    org_refs = [Organism("Test1", org_genome, 0, (10, 10)),
-                Organism("Test2", org_genome, 0, (20, 20))]
-    basic_env.add_organisms(positions, speeds=speeds, org_refs=org_refs)
-    assert basic_env.organisms.shape[0] == 2
+# Environment Tests
+def test_spawn_default_organisms(basic_env):
+    organisms = basic_env.get_organisms()
+    organisms.spawn_initial_organisms(2)
+    assert organisms.get_organisms().shape[0] == 2
+
+
+def test_organisms_step(basic_env):
+    basic_env.get_organisms().spawn_initial_organisms(2)
+    organisms = basic_env.get_organisms().get_organisms()
+    energies_before = organisms['energy']
     basic_env.step()
-    assert np.all(basic_env.organisms['energy'] <= 10.0)  # energy reduces
+    energies_after = organisms['energy']
+    assert np.all(energies_after <= energies_before)  # energy reduces
 
 
-def test_soft_remove_dead(basic_env):
-    # Create two organisms: one alive, one to be marked dead
-    positions = np.array([[10, 10], [20, 20]], dtype=np.float32)
-    speeds = np.array([1.0, 1.0], dtype=np.float32)
-    org_refs = [
-        Organism("Dead", org_genome, 0, (10, 10)),
-        Organism("Alive", org_genome, 0, (20, 20))
-    ]
-
+def test_organism_death(basic_env):
     # Add both organisms to the environment
-    basic_env.add_organisms(positions, speeds=speeds, org_refs=org_refs)
+    basic_env.get_organisms().spawn_initial_organisms(2)
+    organisms = basic_env.get_organisms().get_organisms()
 
     # Manually reduce energy of first to simulate death
-    basic_env.organisms['energy'][0] = -1.0
+    organisms['energy'][0] = -1.0
 
-    # Apply soft deletion logic
-    basic_env.soft_remove_dead()
+    # Apply death logic
+    basic_env.step()
 
     # Only one organism should be alive
-    alive = basic_env.organisms[basic_env.organisms['alive']]
-    assert len(alive) == 1
-    assert alive['org_ref'][0].get_name() == "Alive"
+    organisms = basic_env.get_organisms().get_organisms()
+    assert len(organisms) == 1
+
+# TODO: Test death from invalid movement tile i.e. water
 
 
 def test_generate_terrain():
     terrain = generate_fractal_terrain(100, 100)
     assert terrain.shape == (100, 100)
     assert np.all((terrain >= -1.0) & (terrain <= 1.0))
-
-
-# Organism Tests
-def test_organism_attributes():
-    position = (5, 5)
-    org = Organism("TestOrg", org_genome, 2, position)
-    org.get_size().set_val(4)
-    assert org.get_name() == "TestOrg"
-    assert org.get_size().get_val() == 4
-    assert org.get_position().tolist() == list(position)
-
-
-def test_organism_move_and_die():
-    org = Organism("TestOrg", org_genome, 5, (10, 10))
-    result = org.move()
-    assert result in ("move", "die", "reproduce")
 
 
 # Viewer2D Tests

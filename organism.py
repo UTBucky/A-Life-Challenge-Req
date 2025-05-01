@@ -31,7 +31,7 @@ class Organisms:
             ('y_pos', np.float32),
         ])
 
-        self._organisms = np.zeros((0,), dtype=self.organism_dtype)
+        self._organisms = np.zeros((0,), dtype=self._organism_dtype)
         self._env = env
         # TODO: Load genes from json file
         self._gene_pool = None
@@ -39,6 +39,10 @@ class Organisms:
     # Get methods
     def get_organisms(self):
         return self._organisms
+
+    # Set methods
+    def set_organisms(self, new_organisms):
+        self._organisms = new_organisms
 
     # TODO: Split logic into smaller functions for readability
     def spawn_initial_organisms(self, number_of_organisms: int,
@@ -125,7 +129,7 @@ class Organisms:
         energies = energies[:valid_count]
 
         # Create array of spawned organisms
-        spawned_orgs = np.zeros((valid_count,), dtype=self.organism_dtype)
+        spawned_orgs = np.zeros((valid_count,), dtype=self._organism_dtype)
         spawned_orgs['species'] = species
         spawned_orgs['size'] = sizes
         spawned_orgs['speed'] = speeds
@@ -183,19 +187,50 @@ class Organisms:
             self._env.add_births(offspring.shape[0])
 
     # TODO: Add cost to organism movement based on the movement efficiency
-    def move_org(self):
+    def move(self):
         """
-        Moves all organisms.
+        Moves all organisms randomly.
         """
         alive = (self._organisms['energy'] > 0)
-        speed = self._organisms['speed'][alive][:, None]
+        speed = self._organisms['speed'][:, None]
         jitter_shape = (alive.sum(), 2)
-        self.move_jitter = np.random.uniform(-1, 1, size=jitter_shape) * speed
-        self.new_positions = np.stack(
+        move_jitter = np.random.uniform(-1, 1, size=jitter_shape) * speed
+
+        new_positions = np.stack(
             (
-                self.organisms['x_pos'][alive], self._organisms['y_pos'][alive]
-                ), axis=1
-            ) + self.move_jitter
+                self._organisms['x_pos'],
+                self._organisms['y_pos']
+            ),
+            axis=1
+            ) + move_jitter
+
+        self.verify_positions(new_positions)
+
+        # Organisms that moved are incurred an energy cost
+        # TODO: Implement movement efficiency gene in cost calc
+        alive_idx = np.flatnonzero(self._organisms['energy'])
+        displacement = np.abs(
+            move_jitter[:alive_idx.shape[0]]
+            ).sum(axis=1)
+        self._organisms['energy'][alive_idx] -= 0.05 * displacement
+
+    # TODO: Cleanup further and add logic for move affordances
+    def verify_positions(self, new_positions):
+        """
+        Verifies the new positions of all living organisms.
+        """
+
+        # Checks that organisms are on terrain they can move on
+        # Organisms die if not
+        # TODO: Implement movement affordance gene checking
+        land_mask = self._env.inbounds(new_positions)
+        self._organisms[~land_mask] = 0
+
+        # Only valid organism moves are made
+        new_x_positions = new_positions[land_mask][:, 0]
+        new_y_positions = new_positions[land_mask][:, 1]
+        self._organisms['x_pos'] = new_x_positions
+        self._organisms['y_pos'] = new_y_positions
 
     # TODO: Cleanup since organisms eat other organisms
     # Once we deal with speciation, organisms will eat plantlike organisms
@@ -208,3 +243,16 @@ class Organisms:
     # TODO: Add method for organizim decision making
     def take_action(self):
         pass
+
+    def remove_dead(self):
+        """
+        Removes dead organisms from the environment
+        """
+
+        # Retrieves which organisms are dead and updates death counter
+        dead_mask = (self._organisms['energy'] <= 0)
+        self._env.add_deaths(np.count_nonzero(dead_mask))
+
+        # The dead are removed from the organisms array
+        survivors = self._organisms[~dead_mask]
+        self._organisms = survivors

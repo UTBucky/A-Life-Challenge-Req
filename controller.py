@@ -1,5 +1,5 @@
-from tdenvironment import TDEnvironment
-from tdenvironment import generate_fractal_terrain
+from environment import Environment
+from environment import generate_fractal_terrain
 from viewer2dp import Viewer2D
 
 # Variables for setup/testing
@@ -9,7 +9,7 @@ NUM_ORGANISMS = 10000    # Attempt organism creation this many times
 
 def main():
     # Initialize environment
-    env = TDEnvironment(GRID_SIZE, GRID_SIZE)
+    env = Environment(GRID_SIZE, GRID_SIZE)
 
     # Generate terrain and apply terrain mask
     raw_terrain = generate_fractal_terrain(GRID_SIZE, GRID_SIZE, seed=200)

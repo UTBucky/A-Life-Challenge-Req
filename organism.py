@@ -227,8 +227,8 @@ class Organisms:
         self._organisms[~land_mask] = 0
 
         # Only valid organism moves are made
-        new_x_positions = new_positions[land_mask][:, 0]
-        new_y_positions = new_positions[land_mask][:, 1]
+        new_x_positions = new_positions[:, 0]
+        new_y_positions = new_positions[:, 1]
         self._organisms['x_pos'] = new_x_positions
         self._organisms['y_pos'] = new_y_positions
 

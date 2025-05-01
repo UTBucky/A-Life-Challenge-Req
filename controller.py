@@ -28,9 +28,10 @@ def main():
     # in grid_viewer, here for now to make easier to see what is running
     running = True
     while running:
-        running = viewer.handle_events()        # checks for pygame quit event
-        env.step()                              # Progresses simulation 1 gen
-        viewer.draw_screen()                    # Renders environment
+        running = viewer.handle_events()            # checks for events (quit, mouseclick, etc)
+        if viewer.is_running():
+            env.step()                              # Progresses simulation 1 gen
+            viewer.draw_screen()                    # Renders environment
 
 
 if __name__ == "__main__":

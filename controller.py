@@ -1,38 +1,25 @@
-from tdenvironment import TDEnvironment
-from tdenvironment import generate_fractal_terrain
+from environment import Environment
+from environment import generate_fractal_terrain
 from viewer2dp import Viewer2D
-from organism import Organism
-import numpy as np
-
 
 # Variables for setup/testing
 GRID_SIZE = 1000         # Determines size of environment
-NUM_ORGANISMS = 10000   # Attempt organism creation this many times
+NUM_ORGANISMS = 10000    # Attempt organism creation this many times
 
 
 def main():
     # Initialize environment
-    env = TDEnvironment(GRID_SIZE, GRID_SIZE)
+    env = Environment(GRID_SIZE, GRID_SIZE)
 
     # Generate terrain and apply terrain mask
     raw_terrain = generate_fractal_terrain(GRID_SIZE, GRID_SIZE, seed=200)
     env.set_terrain(raw_terrain)
 
-    # Vectorized organism creation
-    max_attempts = int(NUM_ORGANISMS)
-    rand_positions = np.random.randint(
-        0, GRID_SIZE, size=(max_attempts, 2)
-        ).astype(np.float32)
-    rand_speeds = np.random.randint(
-        1, 5, size=(max_attempts,)
-        ).astype(np.float32)
-
-    # Pre-make Organism references
-    org_refs = [Organism("ORG1", [1, 1, int(speed), 1, 1], 0, tuple(pos))
-                for speed, pos in zip(rand_speeds, rand_positions)]
-
-    # Batch insert
-    env.add_organisms(rand_positions, speeds=rand_speeds, org_refs=org_refs)
+    # Spawn initial organisms
+    # TODO: Implement choice to randomize initial organisms
+    # TODO: gene_pool = load_genes.load_genes_from_file()
+    number_of_organisms = int(NUM_ORGANISMS)
+    env.get_organisms().spawn_initial_organisms(number_of_organisms)
 
     # Initialize PyGame visualization
     viewer = Viewer2D(env)

@@ -40,8 +40,8 @@ class Viewer2D:
 
         # Scale factors for rendering based on env size vs screen size
         self.main_area = (window_size[0] - sidebar_width, window_size[1])
-        self.scale_x = self.main_area[0] / self.env.width
-        self.scale_y = self.main_area[1] / self.env.height
+        self.scale_x = self.main_area[0] / self.env.get_width()
+        self.scale_y = self.main_area[1] / self.env.get_length()
 
         # Flag for running state, used by start/stop button
         self._running = True
@@ -84,8 +84,9 @@ class Viewer2D:
         Water (terrain < 0) is rendered as a blue
         gradient based on depth (-1 to 0).
         """
-        terrain_surface = pygame.Surface((self.env.width, self.env.height))
-        terrain = self.env.terrain
+        terrain_surface = pygame.Surface((self.env.get_width(),
+                                          self.env.get_length()))
+        terrain = self.env.get_terrain()
         rgb = np.zeros((terrain.shape[0], terrain.shape[1], 3), dtype=np.uint8)
 
         # Land - Green
@@ -116,11 +117,11 @@ class Viewer2D:
         Renders all organisms as colored dots depending on energy level.
         Only renders those marked as alive.
         """
-        alive = self.env.organisms[self.env.organisms['alive']]
+        alive = self.env.get_organisms().get_organisms()
 
         for org in alive:
-            x = int(org['x'] * self.scale_x) + self.sidebar_width
-            y = int(org['y'] * self.scale_y)
+            x = int(org['x_pos'] * self.scale_x) + self.sidebar_width
+            y = int(org['y_pos'] * self.scale_y)
             energy = org['energy']
 
             if energy < 5:
@@ -136,7 +137,7 @@ class Viewer2D:
         """
         Display births, deaths, and average energy of the alive population.
         """
-        alive = self.env.organisms[self.env.organisms['alive']]
+        alive = self.env.get_organisms().get_organisms()
         births = self.env.get_total_births()
         deaths = self.env.get_total_deaths()
         avg_energy = np.mean(alive['energy']) if len(alive) > 0 else 0
@@ -177,7 +178,7 @@ class Viewer2D:
         """
         Display total population counter
         """
-        live_count = np.count_nonzero(self.env.organisms['alive'])
+        live_count = np.count_nonzero(self.env.get_organisms().get_organisms())
         pop_text = self.font.render(
             f"Population: {live_count}",
             True,

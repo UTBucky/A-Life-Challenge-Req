@@ -1,5 +1,6 @@
 import pygame
 import pytest
+from environment import Environment
 from button import Button, create_stop_start_button, create_save_button, create_load_button, create_skip_button
 from viewer2dp import Viewer2D
 
@@ -25,14 +26,10 @@ def button(dummy_screen):
     )
 
 
-class DummyEnvironment:
-    width = 50
-    height = 50
-
-
 @pytest.fixture
 def dummy_env():
-    return DummyEnvironment()
+    DummyEnvironment = Environment(50, 50)
+    return DummyEnvironment
 
 
 @pytest.fixture

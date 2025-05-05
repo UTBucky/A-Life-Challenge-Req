@@ -30,7 +30,8 @@ def main():
     while running:
         running = viewer.handle_events()            # checks for events (quit, mouseclick, etc)
         if viewer.is_running():
-            env.step()                              # Progresses simulation 1 gen
+            # Need to call step on env attached to the viewer if loading a saved state
+            viewer.get_env().step()                       # Progresses simulation 1 gen
             viewer.draw_screen()                    # Renders environment
 
 

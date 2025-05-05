@@ -1,5 +1,10 @@
 # Class for creating buttons, contains functions to create standard required buttons
 import pygame
+import pickle
+import tkinter as tk
+from tkinter import filedialog
+
+tk.Tk().withdraw()
 
 
 class Button:
@@ -45,7 +50,39 @@ class Button:
                           self._rectangle.y + self._text_offset_y)
                           )
 
+    def save_simulation_prompt(self, env, timestep):
+        """Opens file explorer and allows user to name save file and set location"""
+        file_path = filedialog.asksaveasfilename(
+            defaultextension='.pkl',
+            filetypes=[('Pickle Files', '*.pkl'), ("All files", "*.*")],
+            title='Save Simulation',
+        )
+        if file_path:
+            self.save_simulation(file_path, env, timestep)
 
+    def save_simulation(self, filename, env, timestep):
+        """Uses pickle to serialize environment and viewer into a binary file"""
+        with open(filename, "wb") as f:
+            pickle.dump({'env': env, 'timestep': timestep}, f)
+
+    def load_simulation_prompt(self):
+        """Opens file explorer and allows user to select a specific save file"""
+        file_path = filedialog.askopenfilename(
+            filetypes=[('Pickle Files', '*.pkl'), ("All files", "*.*")],
+            title='Load Simulation',
+        )
+        if file_path:
+            return self.load_simulation(file_path)
+        return None, None   # Invalid file return
+
+    def load_simulation(self, filename):
+        """Uses pick deserialize and load environment and viewer object states"""
+        with open(filename, "rb") as f:
+            data = pickle.load(f)
+        return data['env'], data['timestep']
+
+
+# Portable functions to create the required button styles
 def create_stop_start_button(screen, font, running):
     """
     Draws a single button with that shows start/stop depending on run state

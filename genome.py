@@ -2,136 +2,265 @@
 # Zhou, Prudent, Hagan
 # Gene implementation
 
-import random
 import numpy as np
-
-
-class Genome:
-
-    def __init__(self, mutation_rate: float, genes: np.array):
-        """
-        Initialize a genome object.
-
-        :param mutation_rate: A float
-        :param genes: A numpy array of genes
-        """
-
-        self._mutation_rate = mutation_rate
-        self._genes = genes
-
-    def get_genes(self):
-        return self._genes
-
-    def replicate_genes(self) -> object:
-        """
-        Replicates genes during for organism reproduction,
-        potentially causing mutations.
-        """
-
-        replicated_genome = {}
-
-        for gene in self._genes:
-            if random.random() > self._mutation_rate:
-                replicated_genome[gene] = self._genes[gene]
-
-            else:
-                replicated_genome[gene] = self._genes[gene].mutate()
-
-        child_genome = Genome(self._mutation_rate, replicated_genome)
-
-        return child_genome
+from typing import Dict
 
 
 class Gene:
+    """Base class: stores a mutation_rate and enforces a mutate() API."""
+
+    def __init__(self, mutation_rate: float):
+        self.mutation_rate = mutation_rate
+
+    def mutate(self):
+        raise NotImplementedError("Subclasses must implement mutate()")
+
+
+class MorphologicalGenes(Gene):
     """
-    Represents a gene of an organism.
+    Five continuous floats in [0,1]: size, camouflage, defense, attack, vision.
+    Stored as a length-5 numpy array.
     """
 
-    def __init__(self, name, val, min_val, max_val):
-        """
-        Initialize a gene object.
+    def __init__(self, mutation_rate: float, values: np.ndarray = None):
+        super().__init__(mutation_rate)
+        # values order: [size, camouflage, defense, attack, vision]
+        self.values = values if values is not None else np.random.rand(5)
 
-        :param name: A string
-        :param val: An integer or float
-        :param min_val: An integer or float
-        :param max_val: An integer or float
-        """
+    @property
+    def size(self) -> float:
+        return float(self.values[0])
 
-        self._name = name
-        self._val = val
-        self._min_val = min_val
-        self._max_val = max_val
+    @property
+    def camouflage(self) -> float:
+        return float(self.values[1])
 
-    def mutate(self) -> object:
-        """
-        Mutates the gene within the minimum and maximum value of the gene.
-        """
+    @property
+    def defense(self) -> float:
+        return float(self.values[2])
 
-        if self._val is int:
-            new_val = random.randint(self._min_val, self._max_val)
+    @property
+    def attack(self) -> float:
+        return float(self.values[3])
 
+    @property
+    def vision(self) -> float:
+        return float(self.values[4])
+
+    def mutate(self) -> "MorphologicalGenes":
+        mask = np.random.rand(5) < self.mutation_rate
+        new_vals = self.values.copy()
+        # draw fresh randoms for each mutated slot
+        new_vals[mask] = np.random.rand(mask.sum())
+        return MorphologicalGenes(self.mutation_rate, new_vals)
+
+
+class MetabolicGenes(Gene):
+    """
+    Numeric array of [metabolism_rate, nutrient_efficiency] ∈ [0,1],
+    plus a categorical diet_type.
+    """
+    DIET_TYPES = np.array(
+        ["Herb", "Omni", "Carn", "Photo", "Parasite"], dtype=object)
+
+    def __init__(
+        self,
+        mutation_rate: float,
+        numeric: np.ndarray = None,
+        diet_type: str = None
+    ):
+        super().__init__(mutation_rate)
+        # numeric[0]=metabolism_rate, numeric[1]=nutrient_efficiency
+        self.numeric = numeric if numeric is not None else np.random.rand(2)
+        self.diet_type = (
+            diet_type
+            if diet_type is not None
+            else np.random.choice(self.DIET_TYPES)
+        )
+
+    @property
+    def metabolism_rate(self) -> float:
+        return float(self.numeric[0])
+
+    @property
+    def nutrient_efficiency(self) -> float:
+        return float(self.numeric[1])
+
+    def mutate(self) -> "MetabolicGenes":
+        mask = np.random.rand(2) < self.mutation_rate
+        new_num = self.numeric.copy()
+        new_num[mask] = np.random.rand(mask.sum())
+
+        if np.random.rand() < self.mutation_rate:
+            new_diet = np.random.choice(self.DIET_TYPES)
         else:
-            new_val = random.uniform(self._min_val, self._max_val)
+            new_diet = self.diet_type
 
-        return Gene(self._name, new_val, self._min_val, self._max_val)
-
-    # Get methods
-    def get_name(self):
-        return self._name
-
-    def get_val(self):
-        return self._val
-
-    def get_min_val(self):
-        return self._min_val
-
-    def get_max_val(self):
-        return self._max_val
-
-    # Set methods
-    def set_val(self, new_val):
-        self._val = new_val
+        return MetabolicGenes(self.mutation_rate, new_num, new_diet)
 
 
-class EnergyGene(Gene):
+class ReproductionGenes(Gene):
     """
-    Defines the energy gathering method of the organism.
+    Continuous fertility_rate ∈ [0,1], integer offspring_count ∈ [1,10],
+    and categorical reproduction_type.
+    """
+    REPRO_TYPES = np.array(["Sexual", "Asexual"], dtype=object)
+
+    def __init__(
+        self,
+        mutation_rate: float,
+        fertility_rate: float = None,
+        offspring_count: int = None,
+        reproduction_type: str = None
+    ):
+        super().__init__(mutation_rate)
+        self.fertility_rate = (
+            fertility_rate
+            if fertility_rate is not None
+            else float(np.random.rand())
+        )
+        self.offspring_count = (
+            offspring_count
+            if offspring_count is not None
+            else int(np.random.randint(1, 11))
+        )
+        self.reproduction_type = (
+            reproduction_type
+            if reproduction_type is not None
+            else np.random.choice(self.REPRO_TYPES)
+        )
+
+    def mutate(self) -> "ReproductionGenes":
+        # fertility float
+        fr = (
+            float(np.random.rand())
+            if np.random.rand() < self.mutation_rate
+            else self.fertility_rate
+        )
+        # offspring int
+        oc = (
+            int(np.random.randint(1, 11))
+            if np.random.rand() < self.mutation_rate
+            else self.offspring_count
+        )
+        # reproduction type
+        rt = (
+            np.random.choice(self.REPRO_TYPES)
+            if np.random.rand() < self.mutation_rate
+            else self.reproduction_type
+        )
+        return ReproductionGenes(self.mutation_rate, fr, oc, rt)
+
+
+class BehavioralGenes(Gene):
+    """
+    Two booleans: pack_behavior, symbiotic.
+    Stored as a length-2 numpy boolean array.
     """
 
-    def __init__(self, name, val, min_val, max_val, options):
-        super().__init__(name, val, min_val, max_val)
+    def __init__(self, mutation_rate: float, bools: np.ndarray = None):
+        super().__init__(mutation_rate)
+        # [pack_behavior, symbiotic]
+        if bools is None:
+            self.bools = np.random.choice(
+                [False, True], size=2
+            )
+        else:
+            self.bools = bools
 
-        self._options = options
+    @property
+    def pack_behavior(self) -> bool:
+        return bool(self.bools[0])
 
-        if self._name not in self._options:
-            raise ValueError(f"{self._name} is not a valid energy gene type.")
+    @property
+    def symbiotic(self) -> bool:
+        return bool(self.bools[1])
 
-    def mutate(self) -> object:
-        new_option = random.choice(self._options)
-        new_val = random.uniform(self._min_val, self._max_val)
-        return EnergyGene(new_option, new_val, self._min_val, self._max_val,
-                          self._options)
-
-    def get_options(self):
-        return self._options
+    def mutate(self) -> "BehavioralGenes":
+        mask = np.random.rand(2) < self.mutation_rate
+        new_b = self.bools.copy()
+        new_b[mask] = ~new_b[mask]
+        return BehavioralGenes(self.mutation_rate, new_b)
 
 
-class MoveGene(Gene):
+class LocomotionGenes(Gene):
     """
-    Defines movement affordances of organism.
+    Three booleans [swim, walk, fly] and one float speed ∈ [0,1].
     """
 
-    def __init__(self, name, options, val=0, min_val=0, max_val=0):
-        super().__init__(name, val, min_val, max_val)
+    def __init__(
+        self,
+        mutation_rate: float,
+        bools: np.ndarray = None,
+        speed: float = None
+    ):
+        super().__init__(mutation_rate)
+        # bools = [swim, walk, fly]
+        self.bools = (
+            bools
+            if bools is not None
+            else np.random.choice([False, True], size=3)
+        )
+        self.speed = (
+            speed
+            if speed is not None
+            else float(np.random.rand())
+        )
 
-        self._options = options
+    @property
+    def swim(self) -> bool:
+        return bool(self.bools[0])
 
-        if self._name not in self._options:
-            raise ValueError(f"{self._name} is not a valid move gene type.")
+    @property
+    def walk(self) -> bool:
+        return bool(self.bools[1])
 
-    def get_options(self):
-        return self._options
+    @property
+    def fly(self) -> bool:
+        return bool(self.bools[2])
 
-    def mutate(self) -> object:
-        new_option = random.choice(self._options)
-        return MoveGene(new_option, self._options)
+    def mutate(self) -> "LocomotionGenes":
+        mask = np.random.rand(3) < self.mutation_rate
+        new_b = self.bools.copy()
+        new_b[mask] = ~new_b[mask]
+
+        new_speed = (
+            float(np.random.rand())
+            if np.random.rand() < self.mutation_rate
+            else self.speed
+        )
+
+        return LocomotionGenes(self.mutation_rate, new_b, new_speed)
+
+
+class Genome:
+    """
+    Holds one instance of each gene-category.
+    replicate_genes() returns a fresh Genome with each sub-gene mutated.
+    """
+
+    def __init__(self, mutation_rate: float):
+        self.mutation_rate = mutation_rate
+        self.morph = MorphologicalGenes(mutation_rate)
+        self.metabolic = MetabolicGenes(mutation_rate)
+        self.reproduction = ReproductionGenes(mutation_rate)
+        self.behavioral = BehavioralGenes(mutation_rate)
+        self.locomotion = LocomotionGenes(mutation_rate)
+
+    def get_genes(self) -> Dict[str, Gene]:
+        return {
+            "morphological": self.morph,
+            "metabolic":     self.metabolic,
+            "reproduction":  self.reproduction,
+            "behavioral":    self.behavioral,
+            "locomotion":    self.locomotion,
+        }
+
+    def replicate_genes(self) -> "Genome":
+        child = Genome(self.mutation_rate)
+        child.morph = self.morph.mutate()
+        child.metabolic = self.metabolic.mutate()
+        child.reproduction = self.reproduction.mutate()
+        child.behavioral = self.behavioral.mutate()
+        child.locomotion = self.locomotion.mutate()
+        return child

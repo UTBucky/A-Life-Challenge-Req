@@ -2,6 +2,17 @@
 # Zhou, Prudent, Hagan
 # Gene implementation
 
+
+# MorphologicalGenes uses five continuous floats (size, camouflage, defense, attack, vision) each ∈ [0,1]
+
+# MetabolicGenes has two numeric entries (metabolism_rate, nutrient_efficiency) ∈ [0,1] plus a categorical diet_type drawn from DIET_TYPES
+
+# ReproductionGenes defines a fertility float ∈ [0,1], an integer offspring count in [1,10], and a categorical reproduction type from REPRO_TYPES
+
+# BehavioralGenes toggles two booleans (pack_behavior, symbiotic)
+
+# LocomotionGenes toggles three booleans (swim, walk, fly) and one float speed ∈ [0,1]
+
 import numpy as np
 
 

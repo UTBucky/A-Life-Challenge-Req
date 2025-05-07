@@ -76,10 +76,10 @@ class Environment:
         # Clips the new organism positions to be inside the environment bounds
         new_positions[:, 0] = np.clip(
             new_positions[:, 0], 0, self._width - 1
-            )
+        )
         new_positions[:, 1] = np.clip(
             new_positions[:, 1], 0, self._length - 1
-            )
+        )
 
         # Sets the cleaned positions
         ix = new_positions[:, 0].astype(np.int32)

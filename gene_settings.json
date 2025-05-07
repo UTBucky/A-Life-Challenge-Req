@@ -1,19 +1,39 @@
 {
-    "size": [1.0, 4.0], 
-    "speed": [1.0, 5.0],
-    "max_age": [5.0, 100.0],
-    "energy_capacity": [1.0, 4.0],
-    "move_eff": [0.01, 0.20],
-    "rep_eff": [0.1, 1.0],
-    "min_temp_tol": [1.0, 3.0],
-    "max_temp_tol": [1.0, 3.0],
-    "energy_prod": {
-        "options":["heterotroph", "autotroph", "parasite"],
-        "values": [0.1, 0.5, 1.0]
-    },
-    "move_aff": [
-        "aquatic",
-        "volant",
-        "terrestrial"
-    ]
-}
+    "mutation_rate": 0.05,
+  
+    "gene_pool": {
+      "morphological": {
+        "values": {
+          "min": [0.0, 0.0, 0.0, 0.0, 0.0],
+          "max": [1.0, 1.0, 1.0, 1.0, 1.0]
+        }
+      },
+  
+      "metabolic": {
+        "numeric": {
+          "min": [0.0, 0.0],
+          "max": [1.0, 1.0]
+        },
+        "diet_type": ["Herb", "Omni", "Carn", "Photo", "Parasite"]
+      },
+  
+      "reproduction": {
+        "fertility_rate": { "min": 0.0, "max": 1.0 },
+        "offspring_count": { "min": 1,   "max": 10  },
+        "reproduction_type": ["Sexual", "Asexual"]
+      },
+  
+      "behavioral": {
+        "pack_behavior": [false, true],
+        "symbiotic":     [false, true]
+      },
+  
+      "locomotion": {
+        "swim":  [false, true],
+        "walk":  [false, true],
+        "fly":   [false, true],
+        "speed": { "min": 0.0, "max": 1.0 }
+      }
+    }
+  }
+  

@@ -18,6 +18,7 @@ class Button:
         text_offset_coords -- x and y offset of text on button, tuple with 2 values for x and y
         color -- the color of the button, a tuple with 3 values for RGB
     """
+
     def __init__(self,
                  rectangle=pygame.Rect(10, 600, 100, 50),
                  text="Insert text",
@@ -45,10 +46,10 @@ class Button:
         btn_text = self._font.render(self._text, True, (255, 255, 255))
         pygame.draw.rect(self._screen, self._color, self._rectangle)
         self._screen.blit(
-                          btn_text,
+            btn_text,
                          (self._rectangle.x + self._text_offset_x,
                           self._rectangle.y + self._text_offset_y)
-                          )
+        )
 
     def save_simulation_prompt(self, env, timestep):
         """Opens file explorer and allows user to name save file and set location"""

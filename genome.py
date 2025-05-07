@@ -247,14 +247,25 @@ class Genome:
         self.behavioral = BehavioralGenes(mutation_rate)
         self.locomotion = LocomotionGenes(mutation_rate)
 
-    def get_genes(self) -> Dict[str, Gene]:
-        return {
-            "morphological": self.morph,
-            "metabolic":     self.metabolic,
-            "reproduction":  self.reproduction,
-            "behavioral":    self.behavioral,
-            "locomotion":    self.locomotion,
-        }
+    def get_morphological(self) -> MorphologicalGenes:
+        """Return the MorphologicalGenes instance."""
+        return self.morph
+
+    def get_metabolic(self) -> MetabolicGenes:
+        """Return the MetabolicGenes instance."""
+        return self.metabolic
+
+    def get_reproduction(self) -> ReproductionGenes:
+        """Return the ReproductionGenes instance."""
+        return self.reproduction
+
+    def get_behavioral(self) -> BehavioralGenes:
+        """Return the BehavioralGenes instance."""
+        return self.behavioral
+
+    def get_locomotion(self) -> LocomotionGenes:
+        """Return the LocomotionGenes instance."""
+        return self.locomotion
 
     def replicate_genes(self) -> "Genome":
         child = Genome(self.mutation_rate)

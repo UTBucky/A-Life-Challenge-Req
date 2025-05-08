@@ -77,7 +77,8 @@ class Environment:
             # Organisms take an action
             # TODO: Implement action decision making,
             #       only moves currently
-            self._organisms.build_spatial_index()
+            if self._generation == 0:
+                self._organisms.build_spatial_index()
             self._organisms.move()
 
             # TODO: Could this be moved to an org method?

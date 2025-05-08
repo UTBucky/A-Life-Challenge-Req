@@ -414,5 +414,3 @@ class Organisms:
         survivors = self._organisms[~dead_mask]
         self._organisms = survivors
         return
-
-

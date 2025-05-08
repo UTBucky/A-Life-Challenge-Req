@@ -86,8 +86,6 @@ class Environment:
             self._generation += 1
 
 
-
-
 def generate_fractal_terrain(
     width,
     height,

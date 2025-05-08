@@ -349,12 +349,15 @@ class Organisms:
                 SEPARATION_RADIUS = 5
 
                 # 1) compute net strengths against each neighbor in `valid`
-                my_net    = my_att - defense[valid]          # our attack minus their defense
-                their_net = attack[valid] - my_def           # their attack minus our defense
+                non_pack_mask = ~pack_flag[valid]       # True for neighbors that are NOT pack mates
 
-                # 2) classify
-                host_mask = their_net > my_net               # if their net > our net → hostile
-                prey_mask = my_net    > their_net            # if our net > their net → prey
+                my_net    = my_att - defense[valid]     # our attack minus their defense
+                their_net = attack[valid] - my_def      # their attack minus our defense
+
+                # now require non-pack AND the appropriate net comparison
+                host_mask = non_pack_mask & (their_net > my_net)     # if their net > our net → hostile
+                prey_mask = non_pack_mask & (my_net    > their_net)  # if our net > their net → prey
+      
 
                 hostiles = valid[host_mask]
                 if hostiles.size > 0:

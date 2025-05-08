@@ -348,15 +348,19 @@ class Organisms:
                 SEPARATION_WEIGHT = 10
                 SEPARATION_RADIUS = 5
 
-                # a) hostiles
-                host_mask = attack[valid] > my_def
+                # 1) compute net strengths against each neighbor in `valid`
+                my_net    = my_att - defense[valid]          # our attack minus their defense
+                their_net = attack[valid] - my_def           # their attack minus our defense
+
+                # 2) classify
+                host_mask = their_net > my_net               # if their net > our net → hostile
+                prey_mask = my_net    > their_net            # if our net > their net → prey
+
                 hostiles = valid[host_mask]
                 if hostiles.size > 0:
                     center = coords[hostiles].mean(axis=0)
                     steer += (pos - center)
                 else:
-                    # b) prey
-                    prey_mask = my_att > defense[valid]
                     prey = valid[prey_mask]
                     if prey.size > 0:
                         center = coords[prey].mean(axis=0)
@@ -398,10 +402,15 @@ class Organisms:
             else:
                 pool = valid
 
-            host_mask = attack[pool] > my_def
-            prey_mask = my_att > defense[pool]
+            # assume `pool` is already valid subset
+            my_net_pool    = my_att - defense[pool]
+            their_net_pool = attack[pool] - my_def
+
+            host_mask = their_net_pool > my_net_pool
+            prey_mask = my_net_pool    > their_net_pool
+
             hostiles = pool[host_mask]
-            prey = pool[prey_mask]
+            prey     = pool[prey_mask]
 
             if hostiles.size > 0:
                 move_vec += (pos - coords[hostiles]).mean(axis=0)

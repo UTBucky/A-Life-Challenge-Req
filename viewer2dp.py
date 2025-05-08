@@ -79,7 +79,7 @@ class Viewer2D:
         self._skip_button.draw_button()
 
         pygame.display.flip()
-        self.clock.tick(5)
+        self.clock.tick(10)
         self.timestep += 1
 
     def draw_terrain(self):
@@ -121,20 +121,31 @@ class Viewer2D:
         """
         Renders all organisms as colored dots depending on energy level.
         Only renders those marked as alive.
+        Energy → color mapping:
+        e < 5   → red
+        5 ≤ e < 10  → red-orange
+        10 ≤ e < 20 → orange-yellow
+        20 ≤ e < 40 → yellow
+        40 ≤ e < 80 → white
+        e ≥ 80      → white
         """
         alive = self.env.get_organisms().get_organisms()
 
         for org in alive:
             x = int(org['x_pos'] * self.scale_x) + self.sidebar_width
             y = int(org['y_pos'] * self.scale_y)
-            energy = org['energy']
+            e = float(org['energy'])
 
-            if energy < 5:
-                color = (255, 0, 0)
-            elif energy < 15:
-                color = (255, 255, 0)
+            if e < 5:
+                color = (255,   0,   0)   # red
+            elif e < 10:
+                color = (255,  69,   0)   # red-orange
+            elif e < 20:
+                color = (255, 165,   0)   # orange-yellow
+            elif e < 40:
+                color = (255, 255,   0)   # yellow
             else:
-                color = (0, 255, 0)
+                color = (255, 255, 255)   # white for e ≥ 40
 
             pygame.draw.circle(self.screen, color, (x, y), 3)
 

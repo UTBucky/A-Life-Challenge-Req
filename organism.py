@@ -308,6 +308,8 @@ class Organisms:
             # camouflage filter
             valid = [j for j in neighs if j !=
                      i and orgs['vision'][j] >= my['camouflage']]
+            # pack_mates: only those valid neighbors also flagged for pack_behavior
+            pack_mates = [j for j in valid if orgs['pack_behavior'][j]]
 
             # build movement vector
             move_vec = np.zeros(2, dtype=np.float32)
@@ -316,8 +318,7 @@ class Organisms:
             if my['pack_behavior']:
                 steer = np.zeros(2, dtype=np.float32)
                 SEPARATION_WEIGHT = 10
-                SEPARATION_RADIUS = 10
-
+                SEPARATION_RADIUS = 5
                 # 1) Threats: flee stronger neighbors
                 hostiles = [j for j in valid
                             if orgs['attack'][j] > my['defense']]
@@ -333,10 +334,10 @@ class Organisms:
                         steer += (center - pos)
                     else:
                         # 3) Cohesion + gentle separation
-                        if valid:
-                            center = coords[valid].mean(axis=0)
+                        if pack_mates:
+                            center = coords[pack_mates].mean(axis=0)
                             steer += (center - pos)
-                            dists = coords[valid] - pos
+                            dists = coords[pack_mates] - pos
                             too_close = [
                                 d for d in dists
                                 if np.linalg.norm(d) < SEPARATION_RADIUS

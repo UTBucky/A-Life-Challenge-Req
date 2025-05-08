@@ -363,8 +363,6 @@ class Organisms:
                 new[0] = np.clip(new[0], 0, width - 1)
                 new[1] = np.clip(new[1], 0, length - 1)
                 return new
-            if my['symbiotic']:
-                return self.move_symbiotic(i, pos, valid)
 
             # social steering
             pool = [j for j in valid if (
@@ -382,14 +380,14 @@ class Organisms:
                 # average repulsion vector away from the group
                 repulse = np.mean(pos - coords[same], axis=0)
                 move_vec += CROWD_PUSH * repulse
-            
+
             WATER_PUSH = 5.0
             LAND_PUSH = 5.0
             if not my['swim']:
                 move_vec += WATER_PUSH * avoid_water[i]
             if not my['walk']:
                 move_vec += LAND_PUSH * avoid_land[i]
-            
+
             # normalize & scale
             norm = np.linalg.norm(move_vec)
             step = (move_vec/norm) * \

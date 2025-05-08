@@ -104,6 +104,7 @@ class Organisms:
         env_width = self._env.get_width()
         env_length = self._env.get_length()
         env_terrain = self._env.get_terrain()
+        grid_size = env_width
 
         # --- build raw parameter arrays ---
         n = number_of_organisms
@@ -238,6 +239,23 @@ class Organisms:
         N = orgs.shape[0]
         if N == 0:
             return
+
+        terrain = self._env.get_terrain()
+        ix = self._organisms['x_pos'].astype(np.int32)
+        iy = self._organisms['y_pos'].astype(np.int32)
+        land_mask = terrain[iy, ix] >= 0
+
+        # Penalize energy for out-of-terrain conditions
+        orgs = self._organisms
+        swim_only = orgs['swim'] & ~orgs['walk'] & ~orgs['fly']
+        walk_only = orgs['walk'] & ~orgs['swim'] & ~orgs['fly']
+
+        # swim-only on land, or walk-only in water
+        penalty = (swim_only & land_mask) | \
+            (walk_only & ~land_mask)
+
+        # subtract 5 energy per violation (they die via remove_dead when energy ≤ 0)
+        orgs['energy'][penalty] -= 5
 
         coords = np.stack((orgs['x_pos'], orgs['y_pos']), axis=1)
         vision_radii = orgs['vision']
@@ -395,3 +413,6 @@ class Organisms:
         # The dead are removed from the organisms array
         survivors = self._organisms[~dead_mask]
         self._organisms = survivors
+        return
+
+

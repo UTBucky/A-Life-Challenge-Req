@@ -64,30 +64,6 @@ class Environment:
     def add_deaths(self, new_deaths):
         self._total_deaths += new_deaths
 
-    # TODO: Cleanup and add parameters for clarity
-    #       add masks for different tile types such as water
-    def inbounds(self, new_positions):
-        """
-        Clips in bound positions
-        returns land mask
-        """
-
-        # Clips the new organism positions to be inside the environment bounds
-        new_positions[:, 0] = np.clip(
-            new_positions[:, 0], 0, self._width - 1
-        )
-        new_positions[:, 1] = np.clip(
-            new_positions[:, 1], 0, self._length - 1
-        )
-
-        # Sets the cleaned positions
-        ix = new_positions[:, 0].astype(np.int32)
-        iy = new_positions[:, 1].astype(np.int32)
-
-        terrain_mask = self._terrain[iy, ix] >= 0
-
-        return terrain_mask
-
     def step(self):
         """
         Steps one generation forward in the simulation.
@@ -108,6 +84,8 @@ class Environment:
             self._organisms.remove_dead()
 
             self._generation += 1
+
+
 
 
 def generate_fractal_terrain(

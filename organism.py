@@ -197,10 +197,14 @@ class Organisms:
 
         swim_only = swim_arr & ~walk_arr & ~fly_arr
         walk_only = walk_arr & ~swim_arr & ~fly_arr
-        valid_fly_positions = positions[fly_arr]                   # Flyers can be anywhere
-        valid_swim_positions = positions[swim_only & (terrain_values < 0)]  # Swimmers need water
-        valid_walk_positions = positions[walk_only & (terrain_values >= 0)]  # Walkers need land
-        positions = np.concatenate((valid_fly_positions, valid_swim_positions, valid_walk_positions), axis=0)
+        # Flyers can be anywhere
+        valid_fly_positions = positions[fly_arr]
+        valid_swim_positions = positions[swim_only & (
+            terrain_values < 0)]  # Swimmers need water
+        valid_walk_positions = positions[walk_only & (
+            terrain_values >= 0)]  # Walkers need land
+        positions = np.concatenate(
+            (valid_fly_positions, valid_swim_positions, valid_walk_positions), axis=0)
 
         valid_count = positions.shape[0]
 
@@ -300,102 +304,134 @@ class Organisms:
         mask_land = tiles >= 0     # (N,4)
         avoid_land = - (dirs[None, :, :] * mask_land[..., None]).sum(axis=1)
 
-        # Now avoid_water[i] is your 2D vector to push organism i away from adjacent water,
-        # and similarly avoid_land[i] for land.
+        # —––––––– grab items once, outside of any per-organism loop –––––––—
+        vision = orgs['vision']
+        attack = orgs['attack']
+        defense = orgs['defense']
+        pack_flag = orgs['pack_behavior']
+        species = orgs['species']
+        fly_flag = orgs['fly']
+        swim_flag = orgs['swim']
+        walk_flag = orgs['walk']
+        speed = orgs['speed']
 
         def _compute(i, pos, neighs):
+            # pull out “my” values once
             my = orgs[i]
-            # camouflage filter
-            valid = [j for j in neighs if j !=
-                     i and orgs['vision'][j] >= my['camouflage']]
-            # pack_mates: only those valid neighbors also flagged for pack_behavior
-            pack_mates = [j for j in valid if orgs['pack_behavior'][j]]
+            my_cam = my['camouflage']
+            my_att = my['attack']
+            my_def = my['defense']
+            my_spc = my['species']
+            my_pack = pack_flag[i]
+            my_fly = fly_flag[i]
+            my_swim = swim_flag[i]
+            my_walk = walk_flag[i]
+            my_speed = speed[i]
 
-            # build movement vector
+            # make neighbors a NumPy array of ints
+            neighs = np.asarray(neighs, dtype=int)
+
+            # 1) camouflage filter
+            mask_valid = (neighs != i) & (vision[neighs] >= my_cam)
+            valid = neighs[mask_valid]
+
+            # 2) pack_mates if pack_behavior array isn’t empty
+            if pack_flag.shape[0] > 0:
+                pack_mates = valid[pack_flag[valid]]
+
+            # allocate movement accumulator
             move_vec = np.zeros(2, dtype=np.float32)
 
-            # behavioral overrides
-            if my['pack_behavior']:
+            # — behavioral overrides (pack) —
+            if my_pack:
                 steer = np.zeros(2, dtype=np.float32)
                 SEPARATION_WEIGHT = 10
                 SEPARATION_RADIUS = 5
-                # 1) Threats: flee stronger neighbors
-                hostiles = [j for j in valid
-                            if orgs['attack'][j] > my['defense']]
-                if hostiles:
+
+                # a) hostiles
+                host_mask = attack[valid] > my_def
+                hostiles = valid[host_mask]
+                if hostiles.size > 0:
                     center = coords[hostiles].mean(axis=0)
                     steer += (pos - center)
                 else:
-                    # 2) Prey: pursue weaker neighbors
-                    prey = [j for j in valid
-                            if my['attack'] > orgs['defense'][j]]
-                    if prey:
+                    # b) prey
+                    prey_mask = my_att > defense[valid]
+                    prey = valid[prey_mask]
+                    if prey.size > 0:
                         center = coords[prey].mean(axis=0)
                         steer += (center - pos)
                     else:
-                        # 3) Cohesion + gentle separation
-                        if pack_mates:
+                        # c) cohesion + gentle separation
+                        if pack_mates.size > 0:
                             center = coords[pack_mates].mean(axis=0)
                             steer += (center - pos)
-                            dists = coords[pack_mates] - pos
-                            too_close = [
-                                d for d in dists
-                                if np.linalg.norm(d) < SEPARATION_RADIUS
-                            ]
-                            if too_close:
-                                repulse = -np.mean(too_close, axis=0)
-                                steer += repulse * SEPARATION_WEIGHT
-                        # else: no neighbors → steer stays zero
 
-                # apply terrain avoidance
+                            dists = coords[pack_mates] - pos
+                            norms = np.linalg.norm(dists, axis=1)
+                            close = norms < SEPARATION_RADIUS
+                            if close.any():
+                                repulse = -np.mean(dists[close], axis=0)
+                                steer += repulse * SEPARATION_WEIGHT
+
+                # terrain avoidance
                 WATER_PUSH = 5.0
                 LAND_PUSH = 5.0
-                if not my['swim']:
+                if not my_swim:
                     steer += WATER_PUSH * avoid_water[i]
-                if not my['walk']:
+                if not my_walk:
                     steer += LAND_PUSH * avoid_land[i]
 
-                # normalize & scale by speed, then compute new position
+                # normalize & scale by speed
                 norm = np.linalg.norm(steer)
                 step = (steer / norm) * \
-                    my['speed'] if norm > 0 else np.zeros(2, np.float32)
+                    my_speed if norm > 0 else np.zeros(2, np.float32)
+
                 new = pos + step
                 new[0] = np.clip(new[0], 0, width - 1)
                 new[1] = np.clip(new[1], 0, length - 1)
                 return new
 
-            # social steering
-            pool = [j for j in valid if (
-                orgs['fly'][j] if my['fly'] else True)]
-            hostiles = [j for j in pool if orgs['attack'][j] > my['defense']]
-            prey = [j for j in pool if my['attack'] > orgs['defense'][j]]
-            if hostiles:
+            # — social steering (non-pack) —
+            if my_fly:
+                pool = valid[fly_flag[valid]]
+            else:
+                pool = valid
+
+            host_mask = attack[pool] > my_def
+            prey_mask = my_att > defense[pool]
+            hostiles = pool[host_mask]
+            prey = pool[prey_mask]
+
+            if hostiles.size > 0:
                 move_vec += (pos - coords[hostiles]).mean(axis=0)
-            if prey:
+            if prey.size > 0:
                 move_vec += (coords[prey] - pos).mean(axis=0)
 
-            CROWD_PUSH = 0.5 * my['speed']
-            same = [j for j in valid if orgs['species'][j] == my['species']]
-            if same:
-                # average repulsion vector away from the group
+            # crowd repulsion
+            CROWD_PUSH = 0.5 * my_speed
+            same_mask = species[valid] == my_spc
+            same = valid[same_mask]
+            if same.size > 0:
                 repulse = np.mean(pos - coords[same], axis=0)
                 move_vec += CROWD_PUSH * repulse
 
+            # terrain avoidance
             WATER_PUSH = 5.0
             LAND_PUSH = 5.0
-            if not my['swim']:
+            if not my_swim:
                 move_vec += WATER_PUSH * avoid_water[i]
-            if not my['walk']:
+            if not my_walk:
                 move_vec += LAND_PUSH * avoid_land[i]
 
             # normalize & scale
             norm = np.linalg.norm(move_vec)
-            step = (move_vec/norm) * \
-                my['speed'] if norm > 0 else np.zeros(2, np.float32)
+            step = (move_vec / norm) * \
+                my_speed if norm > 0 else np.zeros(2, np.float32)
 
             new = pos + step
-            new[0] = np.clip(new[0], 0, width-1)
-            new[1] = np.clip(new[1], 0, length-1)
+            new[0] = np.clip(new[0], 0, width - 1)
+            new[1] = np.clip(new[1], 0, length - 1)
             return new
 
         # map across all organisms
@@ -420,4 +456,3 @@ class Organisms:
         survivors = self._organisms[~dead_mask]
         self._organisms = survivors
         return
-

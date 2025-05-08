@@ -152,10 +152,10 @@ class Organisms:
             camouflage_arr = np.zeros((n,), dtype=np.float32)
             defense_arr = np.zeros((n,), dtype=np.float32)
             attack_arr = np.zeros((n,), dtype=np.float32)
-            vision_arr = np.full((n,), 5.0, dtype=np.float32)  # or based on env scale
+            vision_arr = np.full((n,), 15, dtype=np.float32)  # or based on env scale
             metabolism_rate_arr = np.full((n,), 1.0, dtype=np.float32)
             nutrient_efficiency_arr = np.full((n,), 1.0, dtype=np.float32)
-            diet_type_arr = np.full((n,), "autotroph", dtype=str15)
+            diet_type_arr = np.full((n,), "heterotroph", dtype=str15)
 
             fertility_rate_arr = np.full((n,), 0.1, dtype=np.float32)
             offspring_count_arr = np.full((n,), 1, dtype=np.int32)
@@ -307,13 +307,15 @@ class Organisms:
                 return self.move_pack_behavior(i, pos, valid)
             if my['symbiotic']:
                 return self.move_symbiotic(i, pos, valid)
-
+            
+            WATER_PUSH = 5.0
+            LAND_PUSH  = 5.0
             # build movement vector
             move_vec = np.zeros(2, dtype=np.float32)
             if not my['swim']:
-                move_vec += avoid_water[i]
+                move_vec += WATER_PUSH * avoid_water[i]
             if not my['walk']:
-                move_vec += avoid_land[i]
+                move_vec += LAND_PUSH * avoid_land[i]
 
             # social steering
             pool = [j for j in valid if (orgs['fly'][j] if my['fly'] else True)]
@@ -323,11 +325,14 @@ class Organisms:
                 move_vec += (pos - coords[hostiles]).mean(axis=0)
             if prey:
                 move_vec += (coords[prey] - pos).mean(axis=0)
-
-            # tiny jitter if still zero
-            if np.allclose(move_vec, 0):
-                move_vec = np.random.uniform(-1,1,2).astype(np.float32)
-
+            
+            CROWD_PUSH = 0.5 * my['speed']
+            same = [j for j in valid if orgs['species'][j] == my['species']]
+            if same:
+                # average repulsion vector away from the group
+                repulse = np.mean(pos - coords[same], axis=0)
+                move_vec += CROWD_PUSH * repulse
+            
             # normalize & scale
             norm = np.linalg.norm(move_vec)
             step = (move_vec/norm)*my['speed'] if norm>0 else np.zeros(2,np.float32)
@@ -338,7 +343,11 @@ class Organisms:
             return new
 
         # map across all organisms
-        new_pos = np.array(list(map(_compute, range(N), coords, neigh_lists)), np.float32)
+        new_pos = np.array([
+            _compute(i, coords[i], neigh_lists[i])
+            for i in range(N)
+        ], dtype=np.float32)
+
         orgs['x_pos'], orgs['y_pos'] = new_pos[:,0], new_pos[:,1]
         self.build_spatial_index()
 

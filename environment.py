@@ -55,8 +55,7 @@ class Environment:
         if terrain_mask.shape != self._terrain.shape:
             raise ValueError('Your terrain mask is wrong!!!!!')
 
-        if not np.array_equal(self._terrain, terrain_mask):
-            self._terrain[...] = terrain_mask.astype(np.float32)
+        self._terrain[:] = terrain_mask.astype(np.float32)
 
     # Other methods
     def add_births(self, new_births):
@@ -102,6 +101,7 @@ class Environment:
             # Organisms take an action
             # TODO: Implement action decision making,
             #       only moves currently
+            self._organisms.build_spatial_index()
             self._organisms.move()
 
             # TODO: Could this be moved to an org method?

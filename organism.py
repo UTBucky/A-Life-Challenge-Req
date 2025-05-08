@@ -1,4 +1,5 @@
 import numpy as np
+from scipy.spatial import cKDTree
 
 
 class Organisms:
@@ -51,6 +52,7 @@ class Organisms:
             ('y_pos',             np.float32),
         ])
 
+        self._pos_tree = None
         self._organisms = np.zeros((0,), dtype=self._organism_dtype)
         self._env = env
         # TODO: Load genes from json file
@@ -66,6 +68,24 @@ class Organisms:
     # Set methods
     def set_organisms(self, new_organisms):
         self._organisms = new_organisms
+
+    def build_spatial_index(self):
+        """
+        Build or rebuild the KD-Tree index over organism positions.
+        Call this once per tick (after any moves/spawns) to enable fast
+        radius or nearest-neighbor queries via self._pos_tree.
+        """
+        # if we have any organisms, stack their x/y into an (N,2) array…
+        if self._organisms.shape[0] > 0:
+            coords = np.stack(
+                (self._organisms['x_pos'], self._organisms['y_pos']),
+                axis=1
+            )
+            # cKDTree is much faster for large N
+            self._pos_tree = cKDTree(coords)
+        else:
+            # no points → no tree
+            self._pos_tree = None
 
     def spawn_initial_organisms(self, number_of_organisms: int,
                                 randomize: bool = False) -> int:
@@ -95,54 +115,61 @@ class Organisms:
             # species label
             species_arr = np.full((n,), "ORG", dtype=str15)
             # — MorphologicalGenes —
-            size_arr       = np.random.rand(n).astype(np.float32)
+            size_arr = np.random.rand(n).astype(np.float32)
             camouflage_arr = np.random.rand(n).astype(np.float32)
-            defense_arr    = np.random.rand(n).astype(np.float32)
-            attack_arr     = np.random.rand(n).astype(np.float32)
-            vision_arr     = np.random.rand(n).astype(np.float32)
+            defense_arr = np.random.rand(n).astype(np.float32)
+            attack_arr = np.random.rand(n).astype(np.float32)
+            vision_arr = np.random.rand(n).astype(np.float32)
             # — MetabolicGenes —
-            metabolism_rate_arr     = np.random.rand(n).astype(np.float32)
+            metabolism_rate_arr = np.random.rand(n).astype(np.float32)
             nutrient_efficiency_arr = np.random.rand(n).astype(np.float32)
-            diet_type_arr           = np.full((n,), "heterotroph", dtype=str15)
+            diet_type_arr = np.full((n,), "heterotroph", dtype=str15)
             # — ReproductionGenes —
-            fertility_rate_arr  = np.random.rand(n).astype(np.float32)
-            offspring_count_arr = np.random.randint(1, 5, size=(n,)).astype(np.int32)
+            fertility_rate_arr = np.random.rand(n).astype(np.float32)
+            offspring_count_arr = np.random.randint(
+                1, 5, size=(n,)).astype(np.int32)
             reproduction_type_arr = np.full((n,), "asexual", dtype=str15)
             # — BehavioralGenes —
-            pack_behavior_arr = np.random.choice([False, True], size=(n,)).astype(np.bool_)
-            symbiotic_arr     = np.random.choice([False, True], size=(n,)).astype(np.bool_)
+            pack_behavior_arr = np.random.choice(
+                [False, True], size=(n,)).astype(np.bool_)
+            symbiotic_arr = np.random.choice(
+                [False, True], size=(n,)).astype(np.bool_)
             # — LocomotionGenes —
-            swim_arr   = np.random.choice([False, True], size=(n,)).astype(np.bool_)
-            walk_arr   = np.random.choice([False, True], size=(n,)).astype(np.bool_)
-            fly_arr    = np.random.choice([False, True], size=(n,)).astype(np.bool_)
-            speed_arr  = np.random.uniform(0.1, 5.0, size=(n,)).astype(np.float32)
+            swim_arr = np.random.choice(
+                [False, True], size=(n,)).astype(np.bool_)
+            walk_arr = np.random.choice(
+                [False, True], size=(n,)).astype(np.bool_)
+            fly_arr = np.random.choice(
+                [False, True], size=(n,)).astype(np.bool_)
+            speed_arr = np.random.uniform(
+                0.1, 5.0, size=(n,)).astype(np.float32)
             # — Simulation bookkeeping —
-            energy_arr = np.random.uniform(0.0, 1.0, size=(n,)).astype(np.float32)
+            energy_arr = np.random.uniform(
+                10, 20, size=(n,)).astype(np.float32)
         else:
             species_arr = np.full((n,), "ORG", dtype=str15)
-            size_arr       = np.full((n,), 1.0, dtype=np.float32)
+            size_arr = np.full((n,), 1.0, dtype=np.float32)
             camouflage_arr = np.zeros((n,), dtype=np.float32)
-            defense_arr    = np.zeros((n,), dtype=np.float32)
-            attack_arr     = np.zeros((n,), dtype=np.float32)
-            vision_arr     = np.zeros((n,), dtype=np.float32)
-
-            metabolism_rate_arr     = np.full((n,), 1.0, dtype=np.float32)
+            defense_arr = np.zeros((n,), dtype=np.float32)
+            attack_arr = np.zeros((n,), dtype=np.float32)
+            vision_arr = np.full((n,), 5.0, dtype=np.float32)  # or based on env scale
+            metabolism_rate_arr = np.full((n,), 1.0, dtype=np.float32)
             nutrient_efficiency_arr = np.full((n,), 1.0, dtype=np.float32)
-            diet_type_arr           = np.full((n,), "heterotroph", dtype=str15)
+            diet_type_arr = np.full((n,), "autotroph", dtype=str15)
 
-            fertility_rate_arr   = np.full((n,), 0.1, dtype=np.float32)
-            offspring_count_arr  = np.full((n,), 1, dtype=np.int32)
+            fertility_rate_arr = np.full((n,), 0.1, dtype=np.float32)
+            offspring_count_arr = np.full((n,), 1, dtype=np.int32)
             reproduction_type_arr = np.full((n,), "asexual", dtype=str15)
 
             pack_behavior_arr = np.full((n,), False, dtype=np.bool_)
-            symbiotic_arr     = np.full((n,), False, dtype=np.bool_)
+            symbiotic_arr = np.full((n,), False, dtype=np.bool_)
 
-            swim_arr   = np.full((n,), False, dtype=np.bool_)
-            walk_arr   = np.full((n,), True,  dtype=np.bool_)
-            fly_arr    = np.full((n,), False, dtype=np.bool_)
-            speed_arr  = np.full((n,), 1.0,  dtype=np.float32)
+            swim_arr = np.full((n,), False, dtype=np.bool_)
+            walk_arr = np.full((n,), True,  dtype=np.bool_)
+            fly_arr = np.full((n,), False, dtype=np.bool_)
+            speed_arr = np.full((n,), 1.0,  dtype=np.float32)
 
-            energy_arr = np.full((n,), 0.5, dtype=np.float32)
+            energy_arr = np.full((n,), 20, dtype=np.float32)
 
         # --- 3) pick random positions and filter to valid land cells ---
         positions = (
@@ -168,49 +195,49 @@ class Organisms:
         def _trim(arr):
             return arr[:valid_count]
 
-        species_arr           = _trim(species_arr)
-        size_arr              = _trim(size_arr)
-        camouflage_arr        = _trim(camouflage_arr)
-        defense_arr           = _trim(defense_arr)
-        attack_arr            = _trim(attack_arr)
-        vision_arr            = _trim(vision_arr)
-        metabolism_rate_arr   = _trim(metabolism_rate_arr)
+        species_arr = _trim(species_arr)
+        size_arr = _trim(size_arr)
+        camouflage_arr = _trim(camouflage_arr)
+        defense_arr = _trim(defense_arr)
+        attack_arr = _trim(attack_arr)
+        vision_arr = _trim(vision_arr)
+        metabolism_rate_arr = _trim(metabolism_rate_arr)
         nutrient_efficiency_arr = _trim(nutrient_efficiency_arr)
-        diet_type_arr         = _trim(diet_type_arr)
-        fertility_rate_arr    = _trim(fertility_rate_arr)
-        offspring_count_arr   = _trim(offspring_count_arr)
+        diet_type_arr = _trim(diet_type_arr)
+        fertility_rate_arr = _trim(fertility_rate_arr)
+        offspring_count_arr = _trim(offspring_count_arr)
         reproduction_type_arr = _trim(reproduction_type_arr)
-        pack_behavior_arr     = _trim(pack_behavior_arr)
-        symbiotic_arr         = _trim(symbiotic_arr)
-        swim_arr              = _trim(swim_arr)
-        walk_arr              = _trim(walk_arr)
-        fly_arr               = _trim(fly_arr)
-        speed_arr             = _trim(speed_arr)
-        energy_arr            = _trim(energy_arr)
+        pack_behavior_arr = _trim(pack_behavior_arr)
+        symbiotic_arr = _trim(symbiotic_arr)
+        swim_arr = _trim(swim_arr)
+        walk_arr = _trim(walk_arr)
+        fly_arr = _trim(fly_arr)
+        speed_arr = _trim(speed_arr)
+        energy_arr = _trim(energy_arr)
 
         # --- 5) pack into structured array ---
         spawned = np.zeros((valid_count,), dtype=self._organism_dtype)
-        spawned['species']            = species_arr
-        spawned['size']               = size_arr
-        spawned['camouflage']         = camouflage_arr
-        spawned['defense']            = defense_arr
-        spawned['attack']             = attack_arr
-        spawned['vision']             = vision_arr
-        spawned['metabolism_rate']    = metabolism_rate_arr
-        spawned['nutrient_efficiency']= nutrient_efficiency_arr
-        spawned['diet_type']          = diet_type_arr
-        spawned['fertility_rate']     = fertility_rate_arr
-        spawned['offspring_count']    = offspring_count_arr
-        spawned['reproduction_type']  = reproduction_type_arr
-        spawned['pack_behavior']      = pack_behavior_arr
-        spawned['symbiotic']          = symbiotic_arr
-        spawned['swim']               = swim_arr
-        spawned['walk']               = walk_arr
-        spawned['fly']                = fly_arr
-        spawned['speed']              = speed_arr
-        spawned['energy']             = energy_arr
-        spawned['x_pos']              = positions[:, 0]
-        spawned['y_pos']              = positions[:, 1]
+        spawned['species'] = species_arr
+        spawned['size'] = size_arr
+        spawned['camouflage'] = camouflage_arr
+        spawned['defense'] = defense_arr
+        spawned['attack'] = attack_arr
+        spawned['vision'] = vision_arr
+        spawned['metabolism_rate'] = metabolism_rate_arr
+        spawned['nutrient_efficiency'] = nutrient_efficiency_arr
+        spawned['diet_type'] = diet_type_arr
+        spawned['fertility_rate'] = fertility_rate_arr
+        spawned['offspring_count'] = offspring_count_arr
+        spawned['reproduction_type'] = reproduction_type_arr
+        spawned['pack_behavior'] = pack_behavior_arr
+        spawned['symbiotic'] = symbiotic_arr
+        spawned['swim'] = swim_arr
+        spawned['walk'] = walk_arr
+        spawned['fly'] = fly_arr
+        spawned['speed'] = speed_arr
+        spawned['energy'] = energy_arr
+        spawned['x_pos'] = positions[:, 0]
+        spawned['y_pos'] = positions[:, 1]
 
         # --- 6) append to full array and update births ---
         self._organisms = np.concatenate((self._organisms, spawned))
@@ -220,55 +247,122 @@ class Organisms:
     # TODO: Implement mutation and
     #       eventually different sexual reproduction types
 
+    def reproduce(self, arg1, arg2):
+        pass
+    
     def move(self):
         """
-        Move each living organism in a random direction
-        for exactly 3 * speed pixels.
+        Move every organism according to:
+          - vision → radius for neighbor queries
+          - camouflage filters out neighbors with too-low vision
+          - reproduction check (calls self.reproduce) → skip move if fired
+          - pack_behavior / symbiotic → delegate to move_pack_behavior / move_symbiotic
+          - locomotion genes control terrain and obstacle avoidance
+          - flight vs. non-flight → repel from stronger attackers, attract to weaker
+          - composite movement vector based on hostility, prey, and terrain avoidance
+          - apply speed, clip to env bounds
+          - rebuild spatial index at end
         """
-        # 1. Which organisms are alive?
-        alive = (self._organisms['energy'] > 0)
-        n_org = self._organisms.shape[0]
+        orgs = self._organisms
+        N = orgs.shape[0]
+        if N == 0:
+            return
 
-        # 2. Get their speeds and compute step lengths
-        speeds = self._organisms['speed']        # shape (n_org,)
-        distances = 3 * speeds                   # 3 pixels × speed_gene
+        # 1) gather positions & vision radii
+        coords = np.stack((orgs['x_pos'], orgs['y_pos']), axis=1)
+        vision_radii = orgs['vision']
+        neigh_lists = self._pos_tree.query_ball_point(coords, vision_radii)
 
-        # 3. Sample a random heading for every organism
-        thetas = np.random.uniform(0, 2 * np.pi, size=n_org)
+        width, length = self._env.get_width(), self._env.get_length()
+        terrain = self._env.get_terrain()
 
-        # 4. Convert to x/y displacements, zeroing out dead ones
-        dx = np.cos(thetas) * distances * alive
-        dy = np.sin(thetas) * distances * alive
-        move_vec = np.stack((dx, dy), axis=1)    # shape (n_org, 2)
+        # cardinal unit directions as array
+        dirs = np.array([[1,0],[-1,0],[0,1],[0,-1]], dtype=np.float32)
 
-        # 5. Compute new positions and verify them
-        curr_pos = np.stack(
-            (self._organisms['x_pos'], self._organisms['y_pos']),
-            axis=1
-        )
-        new_pos = curr_pos + move_vec
-        self.verify_positions(new_pos)
+        # nested helper: vectorized push-away from a terrain type
+        def _away_from(pos, terrain_type):
+            # sample neighbor points
+            samples = pos[None, :] + dirs  # shape (4,2)
+            ix = samples[:,0].astype(int)
+            iy = samples[:,1].astype(int)
+            # mask valid indices
+            valid_mask = (ix >= 0) & (ix < width) & (iy >= 0) & (iy < length)
+            ix, iy = ix[valid_mask], iy[valid_mask]
+            # fetch tiles
+            tiles = terrain[iy, ix]
+            # select dirs to avoid
+            if terrain_type == 'water':
+                avoid_mask = (tiles < 0)
+            else:
+                avoid_mask = (tiles >= 0)
+            # sum opposite directions to avoid obstacles
+            return -np.sum(dirs[valid_mask][avoid_mask], axis=0)
 
-        # 6. Deduct energy cost (same cost factor as base jitter)
-        self._organisms['energy'][alive] -= 0.05 * distances[alive]
+        # per-organism computation
+        def _compute(i, pos, neighs):
+            my = orgs[i]
+            # camouflage: neighbor must have vision >= my camouflage
+            valid = [j for j in neighs if j != i and orgs['vision'][j] >= my['camouflage']]
 
-    # TODO: Cleanup further and add logic for move affordances
-    def verify_positions(self, new_positions):
-        """
-        Verifies the new positions of all living organisms.
-        """
+            # behavioral overrides
+            if my['pack_behavior']:
+                return self.move_pack_behavior(i, pos, valid)
+            if my['symbiotic']:
+                return self.move_symbiotic(i, pos, valid)
 
-        # Checks that organisms are on terrain they can move on
-        # Organisms die if not
-        # TODO: Implement movement affordance gene checking
-        land_mask = self._env.inbounds(new_positions)
-        self._organisms[~land_mask] = 0
+            # composite movement vector start
+            move_vec = np.zeros(2, dtype=np.float32)
 
-        # Only valid organism moves are made
-        new_x_positions = new_positions[:, 0]
-        new_y_positions = new_positions[:, 1]
-        self._organisms['x_pos'] = new_x_positions
-        self._organisms['y_pos'] = new_y_positions
+            # terrain avoidance
+            if not my['swim']:
+                move_vec += _away_from(pos, 'water')
+            if not my['walk']:
+                move_vec += _away_from(pos, 'land')
+
+            # social steering
+            if my['fly']:
+                pool = [j for j in valid if orgs['fly'][j]]
+            else:
+                pool = valid
+            # --- social steering ---
+            hostiles = [j for j in pool if orgs['attack'][j] > my['defense']]
+            prey     = [j for j in pool if my['attack'] > orgs['defense'][j]]
+            if hostiles:
+                move_vec += np.mean(pos - coords[hostiles], axis=0)
+            if prey:
+                move_vec += np.mean(coords[prey] - pos, axis=0)
+
+            # offense/defense interactions
+            hostiles = [j for j in pool if orgs['attack'][j] > my['defense']]
+            prey     = [j for j in pool if my['attack'] > orgs['defense'][j]]
+            if hostiles:
+                move_vec += np.mean(pos - coords[hostiles], axis=0)
+            if prey:
+                move_vec += np.mean(coords[prey] - pos, axis=0)
+
+            # normalize & scale by speed
+            norm = np.linalg.norm(move_vec)
+            if norm > 0:
+                step = (move_vec / norm) * my['speed']
+            else:
+                step = np.zeros(2, dtype=np.float32)
+
+            # new position & bounds check
+            new = pos + step
+            new[0] = np.clip(new[0], 0, width  - 1)
+            new[1] = np.clip(new[1], 0, length - 1)
+            return new
+
+        # map compute over all
+        mapped = map(lambda args: _compute(*args), zip(range(N), coords, neigh_lists))
+        new_positions = np.array(list(mapped), dtype=np.float32)
+
+        # write back & rebuild index
+        orgs['x_pos'] = new_positions[:, 0]
+        orgs['y_pos'] = new_positions[:, 1]
+        self.build_spatial_index()
+
+        
 
     # TODO: Cleanup since organisms eat other organisms
     # Once we deal with speciation, organisms will eat plantlike organisms

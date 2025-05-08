@@ -100,13 +100,12 @@ class Organisms:
         """
         import numpy as np
 
-        # --- 1) get environment info ---
+        # --- get environment info ---
         env_width = self._env.get_width()
         env_length = self._env.get_length()
         env_terrain = self._env.get_terrain()
-        grid_size = env_width  # TODO: handle non‐square later
 
-        # --- 2) build raw parameter arrays ---
+        # --- build raw parameter arrays ---
         n = number_of_organisms
         # string dtype shorthand
         str15 = np.dtype('U15')
@@ -178,7 +177,7 @@ class Organisms:
 
             energy_arr = np.full((n,), 20, dtype=np.float32)
 
-        # --- 3) pick random positions and filter to valid land cells ---
+        # --- pick random positions and filter to valid land cells ---
         positions = (
             np.random.randint(0, grid_size, size=(n, 2))
             .astype(np.float32)
@@ -198,55 +197,32 @@ class Organisms:
 
         valid_count = positions.shape[0]
 
-        # --- 4) truncate all arrays to the number of valid spots ---
-        def _trim(arr):
-            return arr[:valid_count]
-
-        species_arr = _trim(species_arr)
-        size_arr = _trim(size_arr)
-        camouflage_arr = _trim(camouflage_arr)
-        defense_arr = _trim(defense_arr)
-        attack_arr = _trim(attack_arr)
-        vision_arr = _trim(vision_arr)
-        metabolism_rate_arr = _trim(metabolism_rate_arr)
-        nutrient_efficiency_arr = _trim(nutrient_efficiency_arr)
-        diet_type_arr = _trim(diet_type_arr)
-        fertility_rate_arr = _trim(fertility_rate_arr)
-        offspring_count_arr = _trim(offspring_count_arr)
-        reproduction_type_arr = _trim(reproduction_type_arr)
-        pack_behavior_arr = _trim(pack_behavior_arr)
-        symbiotic_arr = _trim(symbiotic_arr)
-        swim_arr = _trim(swim_arr)
-        walk_arr = _trim(walk_arr)
-        fly_arr = _trim(fly_arr)
-        speed_arr = _trim(speed_arr)
-        energy_arr = _trim(energy_arr)
-
-        # --- 5) pack into structured array ---
+        # --- truncate all arrays to the number of valid spots ---
+        # --- pack into structured array ---
         spawned = np.zeros((valid_count,), dtype=self._organism_dtype)
-        spawned['species'] = species_arr
-        spawned['size'] = size_arr
-        spawned['camouflage'] = camouflage_arr
-        spawned['defense'] = defense_arr
-        spawned['attack'] = attack_arr
-        spawned['vision'] = vision_arr
-        spawned['metabolism_rate'] = metabolism_rate_arr
-        spawned['nutrient_efficiency'] = nutrient_efficiency_arr
-        spawned['diet_type'] = diet_type_arr
-        spawned['fertility_rate'] = fertility_rate_arr
-        spawned['offspring_count'] = offspring_count_arr
-        spawned['reproduction_type'] = reproduction_type_arr
-        spawned['pack_behavior'] = pack_behavior_arr
-        spawned['symbiotic'] = symbiotic_arr
-        spawned['swim'] = swim_arr
-        spawned['walk'] = walk_arr
-        spawned['fly'] = fly_arr
-        spawned['speed'] = speed_arr
-        spawned['energy'] = energy_arr
+        spawned['species'] = species_arr[:valid_count]
+        spawned['size'] = size_arr[:valid_count]
+        spawned['camouflage'] = camouflage_arr[:valid_count]
+        spawned['defense'] = defense_arr[:valid_count]
+        spawned['attack'] = attack_arr[:valid_count]
+        spawned['vision'] = vision_arr[:valid_count]
+        spawned['metabolism_rate'] = metabolism_rate_arr[:valid_count]
+        spawned['nutrient_efficiency'] = nutrient_efficiency_arr[:valid_count]
+        spawned['diet_type'] = diet_type_arr[:valid_count]
+        spawned['fertility_rate'] = fertility_rate_arr[:valid_count]
+        spawned['offspring_count'] = offspring_count_arr[:valid_count]
+        spawned['reproduction_type'] = reproduction_type_arr[:valid_count]
+        spawned['pack_behavior'] = pack_behavior_arr[:valid_count]
+        spawned['symbiotic'] = symbiotic_arr[:valid_count]
+        spawned['swim'] = swim_arr[:valid_count]
+        spawned['walk'] = walk_arr[:valid_count]
+        spawned['fly'] = fly_arr[:valid_count]
+        spawned['speed'] = speed_arr[:valid_count]
+        spawned['energy'] = energy_arr[:valid_count]
         spawned['x_pos'] = positions[:, 0]
         spawned['y_pos'] = positions[:, 1]
 
-        # --- 6) append to full array and update births ---
+        # --- append to full array and update births ---
         self._organisms = np.concatenate((self._organisms, spawned))
         self._env.add_births(valid_count)
 

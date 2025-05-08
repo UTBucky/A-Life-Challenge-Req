@@ -168,7 +168,7 @@ class Organisms:
             offspring_count_arr = np.full((n,), 1, dtype=np.int32)
             reproduction_type_arr = np.full((n,), "asexual", dtype=str15)
 
-            pack_behavior_arr = np.full((n,), True, dtype=np.bool_)
+            pack_behavior_arr = np.full((n,), False, dtype=np.bool_)
             symbiotic_arr = np.full((n,), False, dtype=np.bool_)
 
             swim_arr = np.full((n,), False, dtype=np.bool_)

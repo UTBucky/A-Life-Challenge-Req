@@ -5,7 +5,7 @@ from load_genes import load_genes_from_file
 
 # Variables for setup/testing
 GRID_SIZE = 1000         # Determines size of environment
-NUM_ORGANISMS = 1000    # Attempt organism creation this many times
+NUM_ORGANISMS = 10000    # Attempt organism creation this many times
 
 
 def main():
@@ -19,7 +19,7 @@ def main():
     # Spawn initial organisms
     # TODO: Implement choice to randomize initial organisms
     gene_pool = load_genes_from_file()
-    print(gene_pool)
+    env.get_organisms()._gene_pool = gene_pool
     number_of_organisms = int(NUM_ORGANISMS)
     env.get_organisms().spawn_initial_organisms(number_of_organisms)
 

@@ -251,58 +251,56 @@ class Organisms:
         pass
     
     def move(self):
-        """
-        Move every organism according to:
-          - vision → radius for neighbor queries
-          - camouflage filters out neighbors with too-low vision
-          - reproduction check (calls self.reproduce) → skip move if fired
-          - pack_behavior / symbiotic → delegate to move_pack_behavior / move_symbiotic
-          - locomotion genes control terrain and obstacle avoidance
-          - flight vs. non-flight → repel from stronger attackers, attract to weaker
-          - composite movement vector based on hostility, prey, and terrain avoidance
-          - apply speed, clip to env bounds
-          - rebuild spatial index at end
-        """
         orgs = self._organisms
         N = orgs.shape[0]
         if N == 0:
             return
 
-        # 1) gather positions & vision radii
         coords = np.stack((orgs['x_pos'], orgs['y_pos']), axis=1)
         vision_radii = orgs['vision']
         neigh_lists = self._pos_tree.query_ball_point(coords, vision_radii)
 
         width, length = self._env.get_width(), self._env.get_length()
         terrain = self._env.get_terrain()
+        dirs = np.array([[1,0],[-1,0],[0,1],[0,-1]], np.float32)
 
-        # cardinal unit directions as array
-        dirs = np.array([[1,0],[-1,0],[0,1],[0,-1]], dtype=np.float32)
+        # precompute once per tick, outside the per‐organism loop:
+        dirs = np.array([[ 1, 0],
+                        [-1, 0],
+                        [ 0, 1],
+                        [ 0,-1]], dtype=np.float32)   # (4,2)
 
-        # nested helper: vectorized push-away from a terrain type
-        def _away_from(pos, terrain_type):
-            # sample neighbor points
-            samples = pos[None, :] + dirs  # shape (4,2)
-            ix = samples[:,0].astype(int)
-            iy = samples[:,1].astype(int)
-            # mask valid indices
-            valid_mask = (ix >= 0) & (ix < width) & (iy >= 0) & (iy < length)
-            ix, iy = ix[valid_mask], iy[valid_mask]
-            # fetch tiles
-            tiles = terrain[iy, ix]
-            # select dirs to avoid
-            if terrain_type == 'water':
-                avoid_mask = (tiles < 0)
-            else:
-                avoid_mask = (tiles >= 0)
-            # sum opposite directions to avoid obstacles
-            return -np.sum(dirs[valid_mask][avoid_mask], axis=0)
+        # coords: (N,2) array of current positions
+        samples = coords[:, None, :] + dirs[None, :, :]  # shape (N,4,2)
 
-        # per-organism computation
+        # floor to grid‐indices
+        ix = samples[..., 0].astype(int)  # (N,4)
+        iy = samples[..., 1].astype(int)  # (N,4)
+
+        # mask out‐of‐bounds
+        valid = (
+            (ix >= 0) & (ix < width) &
+            (iy >= 0) & (iy < length)
+        )  # (N,4)
+
+        # lookup terrain values, fill invalid with a safe default
+        tiles = np.full((N, 4), np.nan, dtype=np.float32)
+        tiles[valid] = terrain[iy[valid], ix[valid]]
+
+        # for water-avoidance:
+        mask_water = tiles < 0     # (N,4)
+        avoid_water = - (dirs[None, :, :] * mask_water[..., None]).sum(axis=1)
+        # for land-avoidance:
+        mask_land = tiles >= 0     # (N,4)
+        avoid_land = - (dirs[None, :, :] * mask_land[..., None]).sum(axis=1)
+
+        # Now avoid_water[i] is your 2D vector to push organism i away from adjacent water,
+        # and similarly avoid_land[i] for land.
+
         def _compute(i, pos, neighs):
             my = orgs[i]
-            # camouflage: neighbor must have vision >= my camouflage
-            valid = [j for j in neighs if j != i and orgs['vision'][j] >= my['camouflage']]
+            # camouflage filter
+            valid = [j for j in neighs if j!=i and orgs['vision'][j]>=my['camouflage']]
 
             # behavioral overrides
             if my['pack_behavior']:
@@ -310,57 +308,40 @@ class Organisms:
             if my['symbiotic']:
                 return self.move_symbiotic(i, pos, valid)
 
-            # composite movement vector start
+            # build movement vector
             move_vec = np.zeros(2, dtype=np.float32)
-
-            # terrain avoidance
             if not my['swim']:
-                move_vec += _away_from(pos, 'water')
+                move_vec += avoid_water[i]
             if not my['walk']:
-                move_vec += _away_from(pos, 'land')
+                move_vec += avoid_land[i]
 
             # social steering
-            if my['fly']:
-                pool = [j for j in valid if orgs['fly'][j]]
-            else:
-                pool = valid
-            # --- social steering ---
+            pool = [j for j in valid if (orgs['fly'][j] if my['fly'] else True)]
             hostiles = [j for j in pool if orgs['attack'][j] > my['defense']]
             prey     = [j for j in pool if my['attack'] > orgs['defense'][j]]
             if hostiles:
-                move_vec += np.mean(pos - coords[hostiles], axis=0)
+                move_vec += (pos - coords[hostiles]).mean(axis=0)
             if prey:
-                move_vec += np.mean(coords[prey] - pos, axis=0)
+                move_vec += (coords[prey] - pos).mean(axis=0)
 
-            # offense/defense interactions
-            hostiles = [j for j in pool if orgs['attack'][j] > my['defense']]
-            prey     = [j for j in pool if my['attack'] > orgs['defense'][j]]
-            if hostiles:
-                move_vec += np.mean(pos - coords[hostiles], axis=0)
-            if prey:
-                move_vec += np.mean(coords[prey] - pos, axis=0)
+            # tiny jitter if still zero
+            if np.allclose(move_vec, 0):
+                move_vec = np.random.uniform(-1,1,2).astype(np.float32)
 
-            # normalize & scale by speed
+            # normalize & scale
             norm = np.linalg.norm(move_vec)
-            if norm > 0:
-                step = (move_vec / norm) * my['speed']
-            else:
-                step = np.zeros(2, dtype=np.float32)
+            step = (move_vec/norm)*my['speed'] if norm>0 else np.zeros(2,np.float32)
 
-            # new position & bounds check
             new = pos + step
-            new[0] = np.clip(new[0], 0, width  - 1)
-            new[1] = np.clip(new[1], 0, length - 1)
+            new[0] = np.clip(new[0], 0, width-1)
+            new[1] = np.clip(new[1], 0, length-1)
             return new
 
-        # map compute over all
-        mapped = map(lambda args: _compute(*args), zip(range(N), coords, neigh_lists))
-        new_positions = np.array(list(mapped), dtype=np.float32)
-
-        # write back & rebuild index
-        orgs['x_pos'] = new_positions[:, 0]
-        orgs['y_pos'] = new_positions[:, 1]
+        # map across all organisms
+        new_pos = np.array(list(map(_compute, range(N), coords, neigh_lists)), np.float32)
+        orgs['x_pos'], orgs['y_pos'] = new_pos[:,0], new_pos[:,1]
         self.build_spatial_index()
+
 
         
 

@@ -4,8 +4,6 @@ import pickle
 import tkinter as tk
 from tkinter import filedialog
 
-tk.Tk().withdraw()
-
 
 class Button:
     """

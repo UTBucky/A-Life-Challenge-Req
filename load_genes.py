@@ -1,5 +1,5 @@
 import json
-import pprint
+
 
 def load_genes_from_file(filename="gene_settings.json") -> dict:
     """
@@ -39,7 +39,8 @@ def load_genes_from_file(filename="gene_settings.json") -> dict:
     if "metabolic" in gene_pool:
         numeric = gene_pool["metabolic"]["numeric"]
         gene_dict["metabolism_rate"] = (numeric["min"][0], numeric["max"][0])
-        gene_dict["nutrient_efficiency"] = (numeric["min"][1], numeric["max"][1])
+        gene_dict["nutrient_efficiency"] = (
+            numeric["min"][1], numeric["max"][1])
         gene_dict["diet_type"] = gene_pool["metabolic"]["diet_type"]
 
     # Reproduction genes

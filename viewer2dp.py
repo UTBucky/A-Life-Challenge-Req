@@ -11,12 +11,13 @@ class Viewer2D:
     """
     Plane-based viewer (continuous 2D coordinates) with sidebar stats.
     """
+
     def __init__(
             self,
             environment,
             window_size=(1000, 800),
             sidebar_width=200
-            ):
+    ):
         """
         Stores an a-life environment to render, window size and sidebar are
         default (1000,800)/200 respectively
@@ -47,7 +48,8 @@ class Viewer2D:
         self._running = True
 
         # Creates reference to button objects for use in draw/handle_event functions
-        self._stop_start_button = create_stop_start_button(self.screen, self.font, self._running)
+        self._stop_start_button = create_stop_start_button(
+            self.screen, self.font, self._running)
         self._save_button = create_save_button(self.screen, self.font)
         self._load_button = create_load_button(self.screen, self.font)
         self._skip_button = create_skip_button(self.screen, self.font)
@@ -96,7 +98,7 @@ class Viewer2D:
         land_mask = terrain >= 0.0
         rgb[land_mask] = np.asarray(
             [34, 139, 34], dtype=np.uint8
-            )
+        )
 
         # Water gradient
         water_mask = terrain < 0.0
@@ -112,7 +114,7 @@ class Viewer2D:
         pygame.surfarray.blit_array(terrain_surface, rgb.swapaxes(0, 1))
         terrain_surface = pygame.transform.scale(
             terrain_surface, self.main_area
-            )
+        )
         self.screen.blit(terrain_surface, (self.sidebar_width, 0))
 
     def draw_organisms(self):
@@ -147,13 +149,13 @@ class Viewer2D:
 
         birth_text = self.font.render(
             f"Births: {births}", True, (255, 255, 255)
-            )
+        )
         death_text = self.font.render(
             f"Deaths: {deaths}", True, (255, 255, 255)
-            )
+        )
         energy_text = self.font.render(
             f"Avg Energy: {avg_energy:.2f}", True, (255, 255, 255)
-            )
+        )
 
         self.screen.blit(birth_text, (10, 50))
         self.screen.blit(death_text, (10, 70))
@@ -166,7 +168,7 @@ class Viewer2D:
         pygame.draw.rect(
             self.screen, (30, 30, 30),
             pygame.Rect(0, 0, self.sidebar_width, self.window_size[1])
-            )
+        )
 
     def draw_generation_stat(self):
         """
@@ -174,7 +176,7 @@ class Viewer2D:
         """
         gen_text = self.font.render(
             f"Generation: {self.timestep}", True, (255, 255, 255)
-            )
+        )
         self.screen.blit(gen_text, (10, 10))
 
     def draw_total_population_stat(self):
@@ -203,7 +205,8 @@ class Viewer2D:
                     self._running = not self._running
 
                 if self._save_button.get_rectangle().collidepoint(event.pos):               # Save simulation
-                    self._save_button.save_simulation_prompt(self.env, self.timestep)
+                    self._save_button.save_simulation_prompt(
+                        self.env, self.timestep)
 
                 if self._load_button.get_rectangle().collidepoint(event.pos):               # Load simulation
                     saved_env, saved_timestep = self._load_button.load_simulation_prompt()

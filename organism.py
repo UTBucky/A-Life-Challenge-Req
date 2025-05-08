@@ -57,6 +57,9 @@ class Organisms:
         self._env = env
         # TODO: Load genes from json file
         self._gene_pool = None
+        
+        # Garbage collection optimization - scratch buffers
+        self._dirs = np.array([[1,0],[-1,0],[0,1],[0,-1]], np.float32)
 
     def load_genes(self, gene_pool):
         self._gene_pool = gene_pool
@@ -251,6 +254,7 @@ class Organisms:
             return
 
         terrain = self._env.get_terrain()
+        width, length = self._env.get_width(), self._env.get_length()
         ix = self._organisms['x_pos'].astype(np.int32)
         iy = self._organisms['y_pos'].astype(np.int32)
         land_mask = terrain[iy, ix] >= 0
@@ -271,14 +275,10 @@ class Organisms:
         vision_radii = orgs['vision']
         neigh_lists = self._pos_tree.query_ball_point(coords, vision_radii)
 
-        width, length = self._env.get_width(), self._env.get_length()
-        terrain = self._env.get_terrain()
 
         # precompute once per tick, outside the per‐organism loop:
-        dirs = np.array([[1, 0],
-                        [-1, 0],
-                        [0, 1],
-                        [0, -1]], dtype=np.float32)   # (4,2)
+        # Wipes buffer for movement
+        dirs = self._dirs
 
         # coords: (N,2) array of current positions
         samples = coords[:, None, :] + dirs[None, :, :]  # shape (N,4,2)
@@ -454,6 +454,102 @@ class Organisms:
 
         orgs['x_pos'], orgs['y_pos'] = new_pos[:, 0], new_pos[:, 1]
         self.build_spatial_index()
+        
+
+    def resolve_attacks(self):
+        """
+        Vectorized one‐to‐one attacks on nearest neighbor within vision.
+        Attackers gain energy equal to the damage they inflict.
+        """
+        orgs = self._organisms
+        N = orgs.shape[0]
+        if N < 2:
+            return
+
+        # --- 0) Extract flat arrays once ---
+        coords = np.stack((orgs['x_pos'], orgs['y_pos']), axis=1)  # (N,2)
+        att    = orgs['attack']      # (N,)
+        deff   = orgs['defense']
+        vision = orgs['vision']
+        pack   = orgs['pack_behavior']
+        fly    = orgs['fly']
+        swim   = orgs['swim']
+        walk   = orgs['walk']
+        energy = orgs['energy']
+        terrain = self._env.get_terrain()
+
+        # only use pack logic if any pack_behavior is True
+        use_pack = bool(pack.any())
+
+        # --- 1) Ensure KD-Tree is fresh ---
+        if self._pos_tree is None:
+            self.build_spatial_index()
+
+        # --- 2) Batch nearest-neighbor query (k=2) ---
+        dists, idxs   = self._pos_tree.query(coords, k=2, workers=-1)
+        nearest       = idxs[:,1]          # (N,)
+        nearest_dist  = dists[:,1]
+
+        # --- 3) Filter to those within vision ---
+        can_see   = nearest_dist <= vision
+        attackers = np.nonzero(can_see)[0]
+        if attackers.size == 0:
+            return
+
+        i = attackers                 # attacker indices
+        j = nearest[attackers]        # corresponding defender indices
+
+        # --- 4) Terrain/fly/swim/walk restrictions ---
+        ix = orgs['x_pos'][j].astype(int)
+        iy = orgs['y_pos'][j].astype(int)
+        tiles = terrain[iy, ix]       # (M,)
+
+        invalid = np.zeros_like(i, dtype=bool)
+        invalid |= (~fly[i] & fly[j])
+        invalid |= (~swim[i] & swim[j] & (tiles < 0))
+        invalid |= ( swim[i] & ~walk[i] & (tiles >= 0))
+        invalid |= ( swim[i] & ~fly[i]  & fly[j] & (tiles < 0))
+
+        valid_mask = ~invalid
+        i = i[valid_mask]
+        j = j[valid_mask]
+        if i.size == 0:
+            return
+
+        # --- 5) Compute net attack values ---
+        my_net    = att[i] - deff[j]    # (K,)
+        their_net = att[j] - deff[i]
+
+        # --- 6) Classify host vs prey ---
+        if use_pack:
+            non_pack = pack[i] & ~pack[j]
+            host = (their_net > my_net) & non_pack
+            prey = (my_net    > their_net) & non_pack
+        else:
+            host =  their_net > my_net
+            prey =  my_net    > their_net
+
+        # only positive damage engagements
+        host &= (their_net > 0)
+        prey &= (my_net     > 0)
+
+        # --- 7) Apply damage and energy gain in batch ---
+        # Hostiles: neighbor j attacked i
+        if np.any(host):
+            idx_i = i[host]           # defenders hit
+            idx_j = j[host]           # attackers
+            dmg   = their_net[host]
+            energy[idx_i] -= dmg      # defender loses
+            energy[idx_j] += dmg      # attacker gains
+
+        # Prey: attacker i hit neighbor j
+        if np.any(prey):
+            idx_i = i[prey]           # attackers
+            idx_j = j[prey]           # defenders hit
+            dmg   = my_net[prey]
+            energy[idx_j] -= dmg      # defender loses
+            energy[idx_i] += dmg      # attacker gains
+
 
     def remove_dead(self):
         """

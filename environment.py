@@ -80,7 +80,7 @@ class Environment:
 
             self._organisms.build_spatial_index()
             self._organisms.move()
-
+            self._organisms.resolve_attacks()
             # TODO: Could this be moved to an org method?
             self._organisms.remove_dead()
 

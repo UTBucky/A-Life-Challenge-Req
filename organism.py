@@ -193,8 +193,14 @@ class Organisms:
         # land check
         ix = positions[:, 0].astype(np.int32)
         iy = positions[:, 1].astype(np.int32)
-        land_mask = env_terrain[iy, ix] >= 0
-        positions = positions[land_mask]
+        terrain_values = env_terrain[iy, ix]
+
+        swim_only = swim_arr & ~walk_arr & ~fly_arr
+        walk_only = walk_arr & ~swim_arr & ~fly_arr
+        valid_fly_positions = positions[fly_arr]                   # Flyers can be anywhere
+        valid_swim_positions = positions[swim_only & (terrain_values < 0)]  # Swimmers need water
+        valid_walk_positions = positions[walk_only & (terrain_values >= 0)]  # Walkers need land
+        positions = np.concatenate((valid_fly_positions, valid_swim_positions, valid_walk_positions), axis=0)
 
         valid_count = positions.shape[0]
 
@@ -414,3 +420,4 @@ class Organisms:
         survivors = self._organisms[~dead_mask]
         self._organisms = survivors
         return
+

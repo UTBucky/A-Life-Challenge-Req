@@ -7,9 +7,6 @@ import sys
 from unittest.mock import MagicMock
 
 pygame.init()
-
-
-
 sys.modules['tkinter'] = MagicMock()
 sys.modules['tkinter.filedialog'] = MagicMock()
 

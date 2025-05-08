@@ -3,8 +3,15 @@ import pytest
 from environment import Environment
 from button import Button, create_stop_start_button, create_save_button, create_load_button, create_skip_button
 from viewer2dp import Viewer2D
+import sys
+from unittest.mock import MagicMock
 
 pygame.init()
+
+
+
+sys.modules['tkinter'] = MagicMock()
+sys.modules['tkinter.filedialog'] = MagicMock()
 
 
 @pytest.fixture

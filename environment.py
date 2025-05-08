@@ -77,8 +77,8 @@ class Environment:
             # Organisms take an action
             # TODO: Implement action decision making,
             #       only moves currently
-            if self._generation == 0:
-                self._organisms.build_spatial_index()
+
+            self._organisms.build_spatial_index()
             self._organisms.move()
 
             # TODO: Could this be moved to an org method?
@@ -91,72 +91,113 @@ def generate_fractal_terrain(
     width,
     height,
     num_octaves=4,
-    base_res=10,  # slightly coarser base resolution
-    persistence=0.45,  # smoother transitions between octaves
-    steepness_damping=0.4,  # increase slope damping to encourage flatness
-    erosion_passes=4,  # slightly more erosion passes
-    erosion_strength=0.015,  # increased erosion removes more material
+    base_res=10,
+    persistence=0.45,
+    steepness_damping=0.4,
+    erosion_passes=4,
+    erosion_strength=0.015,
     seed=None
 ):
     """
-    Creates Terrain
-    - fractal perlin noise generation with the noise library
-    - Slope based simple gradient erosion
-    - Not too important to understand, terrain generation
-    methods came from a very useful online blogpost
+    Fractal terrain, inspired by Inigo Quilez
+    https://www.youtube.com/watch?v=gsJHzBTPG0Y&t=104s
+    
+    and the following resources from
+    Copyright Inigo Quilez, 2016 - https://iquilezles.org/
+    https://iquilezles.org/articles/morenoise/
+    https://www.shadertoy.com/view/MdX3Rr
+    It utilizes similar methodologies as described in Inigo's blog but does not
+    outright copy code snippets as it is in a different language
+    Generative AI was used in the process of development and commenting
     """
+    # Allocate main terrain array, initialized to zero elevation
     terrain = np.zeros((height, width), dtype=np.float32)
-    damping_mask = np.ones((height, width), dtype=np.float32)
+    # Create a damping mask to progressively limit slope contributions
+    damping_mask = np.ones_like(terrain, dtype=np.float32)
+
+    # Determine maximum grid dimensions for Perlin noise generation
+    max_gh = height // base_res + 2
+    max_gw = width  // base_res + 2
+    # Pre-allocate noise grid for various octaves
+    noise_grid = np.empty((max_gh, max_gw), dtype=np.float32)
+    # Layer buffer used for upsampled noise contribution
+    layer = np.empty_like(terrain, dtype=np.float32)
+    
+    # Buffers for gradient-based erosion calculations
+    grad_x = np.empty_like(terrain)
+    grad_y = np.empty_like(terrain)
+    slope  = np.empty_like(terrain)
+
+    # Initialize random number generator and determine actual seed value
     rng = np.random.default_rng(seed)
-    actual_seed = seed if seed is not None else rng.integers(0, 1_000_000)
+    actual_seed = seed if seed is not None else int(rng.integers(0, 1_000_000))
     print("[Terrain Gen] Seed used:", actual_seed)
 
-    # Fractal Perlin Noise Generation
+    # --- FRACTAL PERLIN NOISE GENERATION ---
     for i in range(num_octaves):
+        # Compute resolution and amplitude for this octave
         res = base_res * (2 ** i)
-        amplitude = persistence ** i
-        grid_shape = (height // res + 2, width // res + 2)
-        noise = np.array(
-            [
-                [
-                    pnoise2(
-                        x / res,
-                        y / res,
-                        octaves=1,
-                        repeatx=width,
-                        repeaty=height,
-                        base=actual_seed,
-                    )
-                    for x in range(grid_shape[1])
-                ]
-                for y in range(grid_shape[0])
-            ],
-            dtype=np.float32,
-        )
-        zoom_factors = (height / grid_shape[0], width / grid_shape[1])
-        layer = zoom(noise, zoom_factors, order=3)
-        layer = (layer - 0.5) * 2
+        amp = persistence ** i
 
+        # Calculate grid dimensions based on resolution
+        gh = height // res + 2
+        gw = width  // res + 2
+
+        # Fill the noise grid at this resolution
+        # Each cell uses 2D Perlin noise with single-octave detail
+        for y in range(gh):
+            for x in range(gw):
+                noise_grid[y, x] = pnoise2(
+                    x / res, y / res,
+                    octaves=1,
+                    repeatx=width,
+                    repeaty=height,
+                    base=actual_seed
+                )
+
+        # Upsample the coarse noise grid to full terrain size (bilinear interpolation)
+        zoom_factors = (height / gh, width / gw)
+        zoom(noise_grid[:gh, :gw], zoom_factors, order=1, output=layer)
+
+        # Normalize noise values from [0,1] to [-1,1]
+        layer = (layer - 0.5) * 2.0
+
+        # After the first octave, compute terrain slope and update damping mask
         if i > 0:
-            slope = gaussian_gradient_magnitude(terrain, sigma=1)
-            attenuation = np.exp(-steepness_damping * slope)
-            damping_mask = np.minimum(damping_mask, attenuation)
+            # Compute magnitude of gradient (slope) from current terrain
+            gaussian_gradient_magnitude(terrain, sigma=1, output=slope)
+            # Dampen contributions in steep regions according to damping factor
+            np.minimum(
+                damping_mask,
+                np.exp(-steepness_damping * slope),
+                out=damping_mask
+            )
 
-        terrain += layer * amplitude * damping_mask
+        # Accumulate the weighted and dampened noise layer into terrain
+        terrain += layer * amp * damping_mask
 
-    terrain -= terrain.mean()
-    terrain /= np.abs(terrain).max()
+    # Normalize terrain height to zero mean and unit max amplitude
+    mean_val = terrain.mean()
+    terrain -= mean_val
+    max_val = np.abs(terrain).max()
+    terrain /= max_val
 
-    # Erosion Simulation (Simple Slope-Based)
+    # --- SLOPE-BASED EROSION PASSES ---
     for _ in range(erosion_passes):
-        grad_x = np.gradient(terrain, axis=1)
-        grad_y = np.gradient(terrain, axis=0)
-        gradient_magnitude = np.sqrt(grad_x**2 + grad_y**2)
-        erosion = erosion_strength * gradient_magnitude
-        terrain -= erosion
+        # Compute horizontal and vertical gradients
+        grad_x[:] = np.gradient(terrain, axis=1)
+        grad_y[:] = np.gradient(terrain, axis=0)
 
+        # Calculate slope magnitude using vector norm
+        np.hypot(grad_x, grad_y, out=slope)
+
+        # Remove material proportional to slope and erosion strength
+        terrain -= erosion_strength * slope
+
+    # Final height remapping to emphasize features
+    terrain = np.sign(terrain) * np.abs(terrain) ** 1.5
+    # One more normalization to stabilize range
     terrain -= terrain.mean()
     terrain /= np.abs(terrain).max()
-    terrain = np.sign(terrain) * np.power(np.abs(terrain), 1.5)
 
     return terrain

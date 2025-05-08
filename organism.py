@@ -114,21 +114,25 @@ class Organisms:
         if randomize:
             # species label
             species_arr = np.full((n,), "ORG", dtype=str15)
+            #
             # — MorphologicalGenes —
             size_arr = np.random.rand(n).astype(np.float32)
             camouflage_arr = np.random.rand(n).astype(np.float32)
             defense_arr = np.random.rand(n).astype(np.float32)
             attack_arr = np.random.rand(n).astype(np.float32)
             vision_arr = np.random.rand(n).astype(np.float32)
+            #
             # — MetabolicGenes —
             metabolism_rate_arr = np.random.rand(n).astype(np.float32)
             nutrient_efficiency_arr = np.random.rand(n).astype(np.float32)
             diet_type_arr = np.full((n,), "heterotroph", dtype=str15)
+            #
             # — ReproductionGenes —
             fertility_rate_arr = np.random.rand(n).astype(np.float32)
             offspring_count_arr = np.random.randint(
                 1, 5, size=(n,)).astype(np.int32)
             reproduction_type_arr = np.full((n,), "asexual", dtype=str15)
+            #
             # — BehavioralGenes —
             pack_behavior_arr = np.random.choice(
                 [False, True], size=(n,)).astype(np.bool_)
@@ -143,6 +147,7 @@ class Organisms:
                 [False, True], size=(n,)).astype(np.bool_)
             speed_arr = np.random.uniform(
                 0.1, 5.0, size=(n,)).astype(np.float32)
+            #
             # — Simulation bookkeeping —
             energy_arr = np.random.uniform(
                 10, 20, size=(n,)).astype(np.float32)
@@ -152,7 +157,9 @@ class Organisms:
             camouflage_arr = np.zeros((n,), dtype=np.float32)
             defense_arr = np.zeros((n,), dtype=np.float32)
             attack_arr = np.zeros((n,), dtype=np.float32)
-            vision_arr = np.full((n,), 15, dtype=np.float32)  # or based on env scale
+            #
+            # or based on env scale
+            vision_arr = np.full((n,), 15, dtype=np.float32)
             metabolism_rate_arr = np.full((n,), 1.0, dtype=np.float32)
             nutrient_efficiency_arr = np.full((n,), 1.0, dtype=np.float32)
             diet_type_arr = np.full((n,), "heterotroph", dtype=str15)
@@ -161,7 +168,7 @@ class Organisms:
             offspring_count_arr = np.full((n,), 1, dtype=np.int32)
             reproduction_type_arr = np.full((n,), "asexual", dtype=str15)
 
-            pack_behavior_arr = np.full((n,), False, dtype=np.bool_)
+            pack_behavior_arr = np.full((n,), True, dtype=np.bool_)
             symbiotic_arr = np.full((n,), False, dtype=np.bool_)
 
             swim_arr = np.full((n,), False, dtype=np.bool_)
@@ -249,7 +256,7 @@ class Organisms:
 
     def reproduce(self, arg1, arg2):
         pass
-    
+
     def move(self):
         orgs = self._organisms
         N = orgs.shape[0]
@@ -262,13 +269,12 @@ class Organisms:
 
         width, length = self._env.get_width(), self._env.get_length()
         terrain = self._env.get_terrain()
-        dirs = np.array([[1,0],[-1,0],[0,1],[0,-1]], np.float32)
 
         # precompute once per tick, outside the per‐organism loop:
-        dirs = np.array([[ 1, 0],
+        dirs = np.array([[1, 0],
                         [-1, 0],
-                        [ 0, 1],
-                        [ 0,-1]], dtype=np.float32)   # (4,2)
+                        [0, 1],
+                        [0, -1]], dtype=np.float32)   # (4,2)
 
         # coords: (N,2) array of current positions
         samples = coords[:, None, :] + dirs[None, :, :]  # shape (N,4,2)
@@ -300,32 +306,75 @@ class Organisms:
         def _compute(i, pos, neighs):
             my = orgs[i]
             # camouflage filter
-            valid = [j for j in neighs if j!=i and orgs['vision'][j]>=my['camouflage']]
+            valid = [j for j in neighs if j !=
+                     i and orgs['vision'][j] >= my['camouflage']]
+
+            # build movement vector
+            move_vec = np.zeros(2, dtype=np.float32)
 
             # behavioral overrides
             if my['pack_behavior']:
-                return self.move_pack_behavior(i, pos, valid)
+                steer = np.zeros(2, dtype=np.float32)
+                SEPARATION_WEIGHT = 10
+                SEPARATION_RADIUS = 10
+
+                # 1) Threats: flee stronger neighbors
+                hostiles = [j for j in valid
+                            if orgs['attack'][j] > my['defense']]
+                if hostiles:
+                    center = coords[hostiles].mean(axis=0)
+                    steer += (pos - center)
+                else:
+                    # 2) Prey: pursue weaker neighbors
+                    prey = [j for j in valid
+                            if my['attack'] > orgs['defense'][j]]
+                    if prey:
+                        center = coords[prey].mean(axis=0)
+                        steer += (center - pos)
+                    else:
+                        # 3) Cohesion + gentle separation
+                        if valid:
+                            center = coords[valid].mean(axis=0)
+                            steer += (center - pos)
+                            dists = coords[valid] - pos
+                            too_close = [
+                                d for d in dists
+                                if np.linalg.norm(d) < SEPARATION_RADIUS
+                            ]
+                            if too_close:
+                                repulse = -np.mean(too_close, axis=0)
+                                steer += repulse * SEPARATION_WEIGHT
+                        # else: no neighbors → steer stays zero
+
+                # apply terrain avoidance
+                WATER_PUSH = 5.0
+                LAND_PUSH = 5.0
+                if not my['swim']:
+                    steer += WATER_PUSH * avoid_water[i]
+                if not my['walk']:
+                    steer += LAND_PUSH * avoid_land[i]
+
+                # normalize & scale by speed, then compute new position
+                norm = np.linalg.norm(steer)
+                step = (steer / norm) * \
+                    my['speed'] if norm > 0 else np.zeros(2, np.float32)
+                new = pos + step
+                new[0] = np.clip(new[0], 0, width - 1)
+                new[1] = np.clip(new[1], 0, length - 1)
+                return new
             if my['symbiotic']:
                 return self.move_symbiotic(i, pos, valid)
-            
-            WATER_PUSH = 5.0
-            LAND_PUSH  = 5.0
-            # build movement vector
-            move_vec = np.zeros(2, dtype=np.float32)
-            if not my['swim']:
-                move_vec += WATER_PUSH * avoid_water[i]
-            if not my['walk']:
-                move_vec += LAND_PUSH * avoid_land[i]
 
             # social steering
-            pool = [j for j in valid if (orgs['fly'][j] if my['fly'] else True)]
+            pool = [j for j in valid if (
+                orgs['fly'][j] if my['fly'] else True)]
             hostiles = [j for j in pool if orgs['attack'][j] > my['defense']]
-            prey     = [j for j in pool if my['attack'] > orgs['defense'][j]]
+            prey = [j for j in pool if my['attack'] > orgs['defense'][j]]
             if hostiles:
                 move_vec += (pos - coords[hostiles]).mean(axis=0)
             if prey:
                 move_vec += (coords[prey] - pos).mean(axis=0)
-            
+
             CROWD_PUSH = 0.5 * my['speed']
             same = [j for j in valid if orgs['species'][j] == my['species']]
             if same:
@@ -333,9 +382,17 @@ class Organisms:
                 repulse = np.mean(pos - coords[same], axis=0)
                 move_vec += CROWD_PUSH * repulse
             
+            WATER_PUSH = 5.0
+            LAND_PUSH = 5.0
+            if not my['swim']:
+                move_vec += WATER_PUSH * avoid_water[i]
+            if not my['walk']:
+                move_vec += LAND_PUSH * avoid_land[i]
+            
             # normalize & scale
             norm = np.linalg.norm(move_vec)
-            step = (move_vec/norm)*my['speed'] if norm>0 else np.zeros(2,np.float32)
+            step = (move_vec/norm) * \
+                my['speed'] if norm > 0 else np.zeros(2, np.float32)
 
             new = pos + step
             new[0] = np.clip(new[0], 0, width-1)
@@ -348,23 +405,8 @@ class Organisms:
             for i in range(N)
         ], dtype=np.float32)
 
-        orgs['x_pos'], orgs['y_pos'] = new_pos[:,0], new_pos[:,1]
+        orgs['x_pos'], orgs['y_pos'] = new_pos[:, 0], new_pos[:, 1]
         self.build_spatial_index()
-
-
-        
-
-    # TODO: Cleanup since organisms eat other organisms
-    # Once we deal with speciation, organisms will eat plantlike organisms
-    # as an example
-    def consume_organism(self):
-        """
-        """
-        pass
-
-    # TODO: Add method for organizim decision making
-    def take_action(self):
-        pass
 
     def remove_dead(self):
         """

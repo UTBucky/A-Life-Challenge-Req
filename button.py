@@ -1,10 +1,7 @@
 # Class for creating buttons, contains functions to create standard required buttons
 import pygame
 import pickle
-import tkinter as tk
 from tkinter import filedialog
-
-tk.Tk().withdraw()
 
 
 class Button:

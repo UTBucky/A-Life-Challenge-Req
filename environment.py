@@ -68,23 +68,27 @@ class Environment:
         """
         Steps one generation forward in the simulation.
         """
+        if self._generation % 100 == 0:      
+            if np.any(self._organisms.get_organisms()['diet_type']== 'Photo'):
+                print('plants exist')
+            else:
+                print('plants do not exist')
 
-        # Only steps while organisms present TODO: May change as env developes
-        if self._organisms.get_organisms().shape[0] != 0:
+            
 
-            # Organisms take an action
-            # TODO: Implement action decision making,
-            #       only moves currently
+        # Organisms take an action
+        # TODO: Implement action decision making,
+        #       only moves currently
 
-            self._organisms.build_spatial_index()
-            self._organisms.move()
-            self._organisms.resolve_attacks()
-            self._organisms.reproduce()
-            # TODO: Could this be moved to an org method?
-            self._organisms.kill_border()
-            self._organisms.remove_dead()
-            self._organisms.get_organisms()['energy'] -= 0.01
-            self._generation += 1
+        self._organisms.build_spatial_index()
+        self._organisms.move()
+        self._organisms.resolve_attacks()
+        self._organisms.reproduce()
+        # TODO: Could this be moved to an org method?
+        self._organisms.kill_border()
+        self._organisms.remove_dead()
+        self._organisms.get_organisms()['energy'] -= 0.01
+        self._generation += 1
 
 
 def generate_fractal_terrain(

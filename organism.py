@@ -1,6 +1,6 @@
 import numpy as np
 from scipy.spatial import cKDTree
-
+import random
 
 class Organisms:
     """
@@ -126,7 +126,7 @@ class Organisms:
         # TODO: Implement number of children, currently just one offspring
         # Put children randomly nearby
         offset = np.random.uniform(-20, 20, size=(parents.shape[0], 2))
-        offspring = np.zeros((parents.shape[0],), dtype=self._organism_dtype)
+        offspring = np.empty((parents.shape[0],), dtype=self._organism_dtype)
 
 
 
@@ -154,6 +154,11 @@ class Organisms:
         # --- Mutate mutated spawns ---
         flip_mask = (np.random.rand(offspring.shape[0]) < 0.01).astype(bool)
         m = flip_mask.sum()
+        species_arr = self.random_name_generation(m)
+        old = offspring['species']                        # shape (N,)
+        new = old.copy()                                  # start with all old names
+        new[flip_mask] = species_arr                      # overwrite the mutated slots
+        offspring['species'] = new
         offspring['size'][flip_mask]               = np.random.uniform(
                                                         low=self._gene_pool['size'][0],
                                                         high=self._gene_pool['size'][1],
@@ -259,6 +264,15 @@ class Organisms:
         offspring['x_pos'] = np.clip(raw_x, 0, width  - 1)
         offspring['y_pos'] = np.clip(raw_y, 0, length - 1)
 
+        # Speciation and lineage tracking
+        # Do this after it's declared valid in the environment
+        unique, counts = np.unique(species_arr, return_counts=True)
+        for i in range(unique.shape[0]):
+            species = unique[i]
+            count   = counts[i]
+            if species not in self._species_count:
+                self._species_count[species] = count
+                print(f"New species added: {species} (initial count = {count})")
         # # TODO: Possible to enhance this?
         # # Handles speciation and lineage tracking
         # for i in range(offspring.shape[0]):
@@ -277,7 +291,26 @@ class Organisms:
         self._organisms = np.concatenate((self._organisms, offspring))
 
 
-
+    def random_name_generation(
+        self,
+        num_to_gen: int,
+        min_syllables: int = 2,
+        max_syllables: int = 4
+    ) -> np.ndarray:
+        """
+        Generate `num_to_gen` random species names and return them as a NumPy array.
+        """
+        syllables = [
+            'ar', 'en', 'ex', 'ul', 'ra', 'zo', 'ka', 'mi',
+            'to', 'lu', 'qui', 'fa', 'ne', 'si', 'ta', 'or',
+            'an', 'el', 'is', 'ur', 'in', 'ox', 'al', 'om'
+        ]
+        names = []
+        for _ in range(num_to_gen):
+            count = random.randint(min_syllables, max_syllables)
+            name = ''.join(random.choice(syllables) for _ in range(count)).capitalize()
+            names.append(name)
+        return np.array(names)
 
 
 
@@ -348,8 +381,13 @@ class Organisms:
                 high=self._gene_pool['nutrient_efficiency'][1],
                 size=(n,)
             ).astype(np.float32)
+            p = [0.01,   # Herb 50%
+                0.01,   # Omni 20%
+                0.01,   # Carn 20%
+                0.96,  # Photo 5%
+                0.01]  # Parasite 5%
+            diet_type_arr = np.random.choice(self._gene_pool['diet_type'], size=n, p=p).astype(np.str_)
 
-            diet_type_arr = np.random.choice(self._gene_pool['diet_type'], size=n).astype(np.str_)
             #
             # — ReproductionGenes —
             fertility_rate_arr = np.random.uniform(
@@ -472,8 +510,6 @@ class Organisms:
         positions_f = positions.astype(np.float32)
         spawned['x_pos']             = positions_f[:, 0]
         spawned['y_pos']             = positions_f[:, 1]
-
-        
         # --- append to full array and update births ---
         self._organisms = np.concatenate((self._organisms, spawned))
         self._env.add_births(valid_count)
@@ -563,7 +599,6 @@ class Organisms:
             my_walk = walk_flag[i]
             my_speed = speed[i]
             if my_diet == 'Photo':
-
                 my['energy'] += 1
                 
                 move_vec = np.zeros(2, dtype=np.float32)
@@ -859,8 +894,8 @@ class Organisms:
         # Retrieves which organisms are dead and updates death counter
         dead_mask = (self._organisms['energy'] <= 0)
         self._env.add_deaths(np.count_nonzero(dead_mask))
-
         # The dead are removed from the organisms array
         survivors = self._organisms[~dead_mask]
         self._organisms = survivors
+
         return

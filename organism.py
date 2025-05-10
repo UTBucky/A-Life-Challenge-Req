@@ -381,11 +381,11 @@ class Organisms:
                 high=self._gene_pool['nutrient_efficiency'][1],
                 size=(n,)
             ).astype(np.float32)
-            p = [0.01,   # Herb 50%
-                0.01,   # Omni 20%
-                0.01,   # Carn 20%
-                0.96,  # Photo 5%
-                0.01]  # Parasite 5%
+            p = [0.50,   # Herb 50%
+                0.20,   # Omni 20%
+                0.20,   # Carn 20%
+                0.05,  # Photo 5%
+                0.05]  # Parasite 5%
             diet_type_arr = np.random.choice(self._gene_pool['diet_type'], size=n, p=p).astype(np.str_)
 
             #
@@ -483,7 +483,7 @@ class Organisms:
         # 5) Concatenate all valid positions, count them
         positions = np.concatenate((valid_fly, valid_swim, valid_walk), axis=0)
         valid_count = positions.shape[0]
-        
+
         # --- truncate all arrays to the number of valid spots ---
         # --- pack into structured array ---
         spawned = np.zeros(valid_count, dtype=self._organism_dtype)
@@ -600,7 +600,7 @@ class Organisms:
             my_speed = speed[i]
             if my_diet == 'Photo':
                 my['energy'] += 1
-                
+                my_def = 0
                 move_vec = np.zeros(2, dtype=np.float32)
 
                 return move_vec
@@ -736,10 +736,13 @@ class Organisms:
             for i in range(N)
         ], dtype=np.float32)
 
-        orgs['x_pos'], orgs['y_pos'] = new_pos[:, 0], new_pos[:, 1]
-        distances = np.linalg.norm(new_pos - old_coords, axis=1)
-        move_costs = 0.01* distances * orgs['metabolism_rate']
-        orgs['energy'] -= move_costs
+
+        non_photo = orgs['diet_type'] != 'Photo'
+        orgs['x_pos'][non_photo] = new_pos[non_photo, 0]
+        orgs['y_pos'][non_photo] = new_pos[non_photo, 1]
+        dists = np.linalg.norm(new_pos[non_photo] - old_coords[non_photo], axis=1)
+        move_costs = 0.01 * dists * orgs['metabolism_rate'][non_photo]
+        orgs['energy'][non_photo] -= move_costs
 
         self.build_spatial_index()
         
@@ -855,7 +858,7 @@ class Organisms:
             energy[idx_j] -= dmg      # defender loses
             energy[idx_i] += dmg      # attacker gains
 
-    def kill_border(self, margin: float = 0.05):
+    def kill_border(self, margin: float = 0.03):
         """
         Instantly kills (sets energy to 0 and removes) all organisms
         within `margin` fraction of the environment border.
@@ -867,17 +870,18 @@ class Organisms:
 
         # world dimensions
         w, h = self._width, self._length
-
+        dx = margin * w        # 0.05 * 1000 = 50
+        dy = margin * h
         # positions
         x = orgs['x_pos']
         y = orgs['y_pos']
 
         # mask of who’s too close to any edge
         border_mask = (
-            (x <  margin * w) |
-            (x > (1-margin) * w) |
-            (y <  margin * h) |
-            (y > (1-margin) * h)
+            (x <  margin * dx) |
+            (x > (1-margin) * w - dx) |
+            (y <  margin * dy) |
+            (y > (1-margin) * h - dy)
         )
 
         if not np.any(border_mask):

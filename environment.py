@@ -69,12 +69,8 @@ class Environment:
         Steps one generation forward in the simulation.
         """
         if self._generation % 100 == 0:      
-            if np.any(self._organisms.get_organisms()['diet_type']== 'Photo'):
-                print('plants exist')
-            else:
-                print('plants do not exist')
-
-            
+            print(self._organisms.get_ancestries())
+           
 
         # Organisms take an action
         # TODO: Implement action decision making,
@@ -89,7 +85,6 @@ class Environment:
         self._organisms.remove_dead()
         self._organisms.get_organisms()['energy'] -= 0.01
         self._generation += 1
-
 
 def generate_fractal_terrain(
     width,

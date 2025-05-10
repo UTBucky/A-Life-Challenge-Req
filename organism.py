@@ -251,7 +251,7 @@ class Organisms:
 
         offspring['energy'] = parent_reproduction_costs
         self._organisms['energy'][reproducing] -= parent_reproduction_costs
-        width, length = self._env.get_width(), self._env.get_length()
+        width, length = self._width, self._length
         raw_x = parents['x_pos'] + offset[:, 0]
         raw_y = parents['y_pos'] + offset[:, 1]
 
@@ -295,8 +295,8 @@ class Organisms:
         import numpy as np
 
         # --- get environment info ---
-        env_width = self._env.get_width()
-        env_length = self._env.get_length()
+        env_width = self._width
+        env_length = self._length
         env_terrain = self._env.get_terrain()
         n = number_of_organisms
 
@@ -487,7 +487,7 @@ class Organisms:
             return
 
         terrain = self._env.get_terrain()
-        width, length = self._env.get_width(), self._env.get_length()
+        width, length = self._width, self._length
         ix = self._organisms['x_pos'].astype(np.int32)
         iy = self._organisms['y_pos'].astype(np.int32)
         land_mask = terrain[iy, ix] >= 0
@@ -564,7 +564,7 @@ class Organisms:
             my_speed = speed[i]
             if my_diet == 'Photo':
 
-                my['energy'] += 0.005
+                my['energy'] += 1
                 
                 move_vec = np.zeros(2, dtype=np.float32)
 
@@ -820,6 +820,36 @@ class Organisms:
             energy[idx_j] -= dmg      # defender loses
             energy[idx_i] += dmg      # attacker gains
 
+    def kill_border(self, margin: float = 0.05):
+        """
+        Instantly kills (sets energy to 0 and removes) all organisms
+        within `margin` fraction of the environment border.
+        """
+        orgs = self._organisms
+        N = orgs.shape[0]
+        if N == 0:
+            return
+
+        # world dimensions
+        w, h = self._width, self._length
+
+        # positions
+        x = orgs['x_pos']
+        y = orgs['y_pos']
+
+        # mask of who’s too close to any edge
+        border_mask = (
+            (x <  margin * w) |
+            (x > (1-margin) * w) |
+            (y <  margin * h) |
+            (y > (1-margin) * h)
+        )
+
+        if not np.any(border_mask):
+            return
+
+        # set them to zero energy so remove_dead() will catch them
+        orgs['energy'][border_mask] = 0.0
 
     def remove_dead(self):
         """

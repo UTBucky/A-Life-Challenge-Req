@@ -1,4 +1,5 @@
 import json
+import pprint
 
 
 def load_genes_from_file(filename="gene_settings.json") -> dict:
@@ -74,4 +75,4 @@ def load_genes_from_file(filename="gene_settings.json") -> dict:
 
 
 if __name__ == "__main__":
-    print(load_genes_from_file("gene_settings.json"))
+    pprint.pprint(load_genes_from_file("gene_settings.json"))

@@ -100,6 +100,82 @@ class Organisms:
             # no points → no tree
             self._pos_tree = None
 
+    def reproduce(self):
+        """
+        Causes all organisms that can to reproduce.
+        Spawns offspring near the parent
+        """
+
+        # Obtains an array of all reproducing organisms
+        reproducing = (self._organisms['energy']
+                    >
+                    (self._organisms['fertility_rate']
+                    *
+                    self._organisms['size'])*25)
+        if not np.any(reproducing):
+            return
+
+        parents = self._organisms[reproducing]
+        parent_reproduction_costs = (25*
+            self._organisms['fertility_rate'][reproducing]
+            * self._organisms['size'][reproducing]
+        )
+
+        # TODO: Implement number of children, currently just one offspring
+        # Put children randomly nearby
+        offset = np.random.uniform(-2, 2, size=(parents.shape[0], 2))
+        offspring = np.zeros((parents.shape[0],), dtype=self._organism_dtype)
+
+
+
+        # Create offspring simulation bookkeeping
+        offspring['species']           = parents['species']
+        offspring['size']              = parents['size']
+        offspring['camouflage']        = parents['camouflage']
+        offspring['defense']           = parents['defense']
+        offspring['attack']            = parents['attack']
+        offspring['vision']            = parents['vision']
+        offspring['metabolism_rate']   = parents['metabolism_rate']
+        offspring['nutrient_efficiency']= parents['nutrient_efficiency']
+        offspring['diet_type']         = parents['diet_type']
+        offspring['fertility_rate']    = parents['fertility_rate']
+        offspring['offspring_count']   = parents['offspring_count']
+        offspring['reproduction_type'] = parents['reproduction_type']
+        offspring['pack_behavior']     = parents['pack_behavior']
+        offspring['symbiotic']         = parents['symbiotic']
+        offspring['swim']              = parents['swim']
+        offspring['walk']              = parents['walk']
+        offspring['fly']               = parents['fly']
+        offspring['speed']             = parents['speed']
+        offspring['energy'] = 10
+        self._organisms['energy'][reproducing] -= parent_reproduction_costs
+        width, length = self._env.get_width(), self._env.get_length()
+        raw_x = parents['x_pos'] + offset[:, 0]
+        raw_y = parents['y_pos'] + offset[:, 1]
+
+
+        offspring['x_pos'] = np.clip(raw_x, 0, width  - 1)
+        offspring['y_pos'] = np.clip(raw_y, 0, length - 1)
+
+        # # TODO: Possible to enhance this?
+        # # Handles speciation and lineage tracking
+        # for i in range(offspring.shape[0]):
+        #     child = offspring['species'][i]
+        #     parent = parents['species'][i]
+
+        #     if parent == child:
+        #         self._species_count[parent] += 1
+
+        #     else:
+        #         self._species_count[child] = 1
+        #         self._ancestry[child] = self._ancestry[parent].copy()
+        #         self._ancestry[child].append(parent)
+
+        self._organisms = np.concatenate((self._organisms, offspring))
+        self._env.add_births(offspring.shape[0])
+
+
+
     def spawn_initial_organisms(self, number_of_organisms: int,
                                 randomize: bool = True) -> int:
         """
@@ -297,11 +373,6 @@ class Organisms:
         self._env.add_births(valid_count)
 
         return valid_count
-    # TODO: Implement mutation and
-    #       eventually different sexual reproduction types
-
-    def reproduce(self, arg1, arg2):
-        pass
 
     def move(self):
         orgs = self._organisms
@@ -361,6 +432,7 @@ class Organisms:
         avoid_land = - (dirs[None, :, :] * mask_land[..., None]).sum(axis=1)
 
         # —––––––– grab items once, outside of any per-organism loop –––––––—
+        diet_type = orgs['diet_type']
         vision = orgs['vision']
         attack = orgs['attack']
         defense = orgs['defense']
@@ -374,6 +446,7 @@ class Organisms:
         def _compute(i, pos, neighs):
             # pull out “my” values once
             my = orgs[i]
+            my_diet = my['diet_type']
             my_cam = my['camouflage']
             my_att = my['attack']
             my_def = my['defense']
@@ -383,6 +456,29 @@ class Organisms:
             my_swim = swim_flag[i]
             my_walk = walk_flag[i]
             my_speed = speed[i]
+
+            if my_diet == 'Photo':
+
+                my['energy'] += 0.02
+
+                WATER_PUSH = 5.0
+                LAND_PUSH = 5.0
+                
+                move_vec = np.zeros(2, dtype=np.float32)
+                
+                if not my_swim:
+                    move_vec += WATER_PUSH * avoid_water[i]
+                if not my_walk:
+                    move_vec += LAND_PUSH * avoid_land[i]
+                # normalize & scale by speed
+                norm = np.linalg.norm(move_vec)
+                step = (move_vec / norm) * \
+                    my_speed if norm > 0 else np.zeros(2, np.float32)
+
+                new = pos + step
+                new[0] = np.clip(new[0], 0, width - 1)
+                new[1] = np.clip(new[1], 0, length - 1)
+                return new
 
             # make neighbors a NumPy array of ints
             neighs = np.asarray(neighs, dtype=int)
@@ -453,6 +549,9 @@ class Organisms:
                 new = pos + step
                 new[0] = np.clip(new[0], 0, width - 1)
                 new[1] = np.clip(new[1], 0, length - 1)
+                dist = np.linalg.norm(new - pos)
+                # use the per‐organism metabolism_rate
+                my['energy'] -= dist * my['metabolism_rate']
                 return new
 
             # — social steering (non-pack) —
@@ -500,15 +599,23 @@ class Organisms:
             new = pos + step
             new[0] = np.clip(new[0], 0, width - 1)
             new[1] = np.clip(new[1], 0, length - 1)
-            return new
+            dist = np.linalg.norm(new - pos)
+            my['energy'] -= dist * my['metabolism_rate']
 
+            return new
+        old_coords = coords
         # map across all organisms
+
         new_pos = np.array([
             _compute(i, coords[i], neigh_lists[i])
             for i in range(N)
         ], dtype=np.float32)
 
         orgs['x_pos'], orgs['y_pos'] = new_pos[:, 0], new_pos[:, 1]
+        distances = np.linalg.norm(new_pos - old_coords, axis=1)
+        move_costs = distances * orgs['metabolism_rate']
+        orgs['energy'] -= move_costs
+
         self.build_spatial_index()
         
 

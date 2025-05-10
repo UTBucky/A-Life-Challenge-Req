@@ -69,10 +69,8 @@ class Environment:
         Steps one generation forward in the simulation.
         """
 
-        organisms = self._organisms.get_organisms()
-
         # Only steps while organisms present TODO: May change as env developes
-        if organisms.shape[0] != 0:
+        if self._organisms.get_organisms().shape[0] != 0:
 
             # Organisms take an action
             # TODO: Implement action decision making,
@@ -81,9 +79,10 @@ class Environment:
             self._organisms.build_spatial_index()
             self._organisms.move()
             self._organisms.resolve_attacks()
+            self._organisms.reproduce()
             # TODO: Could this be moved to an org method?
             self._organisms.remove_dead()
-
+            self._organisms.get_organisms()['energy'] -= 0.01
             self._generation += 1
 
 

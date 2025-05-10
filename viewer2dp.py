@@ -79,7 +79,7 @@ class Viewer2D:
         self._skip_button.draw_button()
 
         pygame.display.flip()
-        self.clock.tick(10)
+        self.clock.tick(100)
         self.timestep += 1
 
     def draw_terrain(self):
@@ -136,13 +136,13 @@ class Viewer2D:
             y = int(org['y_pos'] * self.scale_y)
             e = float(org['energy'])
 
-            if e < 5:
+            if e < 1:
                 color = (255,   0,   0)   # red
-            elif e < 10:
+            elif e < 2:
                 color = (255,  69,   0)   # red-orange
-            elif e < 20:
+            elif e < 3:
                 color = (255, 165,   0)   # orange-yellow
-            elif e < 40:
+            elif e < 4:
                 color = (255, 255,   0)   # yellow
             else:
                 color = (255, 255, 255)   # white for e ≥ 40

@@ -82,7 +82,7 @@ class Environment:
             self._organisms.reproduce()
             # TODO: Could this be moved to an org method?
             self._organisms.remove_dead()
-            self._organisms.get_organisms()['energy'] -= 0.01
+            self._organisms.get_organisms()['energy'] -= 0.001
             self._generation += 1
 
 

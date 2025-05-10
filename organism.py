@@ -111,19 +111,19 @@ class Organisms:
                     >
                     (self._organisms['fertility_rate']
                     *
-                    self._organisms['size'])*25)
+                    self._organisms['size'])*10)
         if not np.any(reproducing):
             return
 
         parents = self._organisms[reproducing]
-        parent_reproduction_costs = (25*
+        parent_reproduction_costs = (10*
             self._organisms['fertility_rate'][reproducing]
             * self._organisms['size'][reproducing]
         )
 
         # TODO: Implement number of children, currently just one offspring
         # Put children randomly nearby
-        offset = np.random.uniform(-2, 2, size=(parents.shape[0], 2))
+        offset = np.random.uniform(-20, 20, size=(parents.shape[0], 2))
         offspring = np.zeros((parents.shape[0],), dtype=self._organism_dtype)
 
 
@@ -147,7 +147,107 @@ class Organisms:
         offspring['walk']              = parents['walk']
         offspring['fly']               = parents['fly']
         offspring['speed']             = parents['speed']
-        offspring['energy'] = 10
+
+        
+        # --- Mutate mutated spawns ---
+        flip_mask = (np.random.rand(offspring.shape[0]) < 0.01).astype(bool)
+        m = flip_mask.sum()
+        offspring['size'][flip_mask]               = np.random.uniform(
+                                                        low=self._gene_pool['size'][0],
+                                                        high=self._gene_pool['size'][1],
+                                                        size=m
+                                                    ).astype(np.float32)
+
+        offspring['camouflage'][flip_mask]         = np.random.uniform(
+                                                        low=self._gene_pool['camouflage'][0],
+                                                        high=self._gene_pool['camouflage'][1],
+                                                        size=m
+                                                    ).astype(np.float32)
+
+        offspring['defense'][flip_mask]            = np.random.uniform(
+                                                        low=self._gene_pool['defense'][0],
+                                                        high=self._gene_pool['defense'][1],
+                                                        size=m
+                                                    ).astype(np.float32)
+
+        offspring['attack'][flip_mask]             = np.random.uniform(
+                                                        low=self._gene_pool['attack'][0],
+                                                        high=self._gene_pool['attack'][1],
+                                                        size=m
+                                                    ).astype(np.float32)
+
+        offspring['vision'][flip_mask]             = np.random.uniform(
+                                                        low=self._gene_pool['vision'][0],
+                                                        high=self._gene_pool['vision'][1],
+                                                        size=m
+                                                    ).astype(np.float32)
+
+        offspring['metabolism_rate'][flip_mask]    = np.random.uniform(
+                                                        low=self._gene_pool['metabolism_rate'][0],
+                                                        high=self._gene_pool['metabolism_rate'][1],
+                                                        size=m
+                                                    ).astype(np.float32)
+
+        offspring['nutrient_efficiency'][flip_mask]= np.random.uniform(
+                                                        low=self._gene_pool['nutrient_efficiency'][0],
+                                                        high=self._gene_pool['nutrient_efficiency'][1],
+                                                        size=m
+                                                    ).astype(np.float32)
+
+        offspring['diet_type'][flip_mask]          = np.random.choice(
+                                                        self._gene_pool['diet_type'],
+                                                        size=m
+                                                    ).astype(np.str_)
+
+        offspring['fertility_rate'][flip_mask]     = np.random.uniform(
+                                                        low=self._gene_pool['fertility_rate'][0],
+                                                        high=self._gene_pool['fertility_rate'][1],
+                                                        size=m
+                                                    ).astype(np.float32)
+
+        offspring['offspring_count'][flip_mask]    = np.random.randint(
+                                                        self._gene_pool['offspring_count'][0],
+                                                        self._gene_pool['offspring_count'][1] + 1,
+                                                        size=m
+                                                    ).astype(np.int32)
+
+        offspring['reproduction_type'][flip_mask]  = np.random.choice(
+                                                        self._gene_pool['reproduction_type'],
+                                                        size=m
+                                                    ).astype(np.str_)
+
+        offspring['pack_behavior'][flip_mask]      = np.random.choice(
+                                                        self._gene_pool['pack_behavior'],
+                                                        size=m
+                                                    ).astype(np.bool_)
+
+        offspring['symbiotic'][flip_mask]          = np.random.choice(
+                                                        self._gene_pool['symbiotic'],
+                                                        size=m
+                                                    ).astype(np.bool_)
+
+        offspring['swim'][flip_mask]               = np.random.choice(
+                                                        self._gene_pool['swim'],
+                                                        size=m
+                                                    ).astype(np.bool_)
+
+        offspring['walk'][flip_mask]               = np.random.choice(
+                                                        self._gene_pool['walk'],
+                                                        size=m
+                                                    ).astype(np.bool_)
+
+        offspring['fly'][flip_mask]                = np.random.choice(
+                                                        self._gene_pool['fly'],
+                                                        size=m
+                                                    ).astype(np.bool_)
+
+        offspring['speed'][flip_mask]              = np.random.uniform(
+                                                        low=self._gene_pool['speed'][0],
+                                                        high=self._gene_pool['speed'][1],
+                                                        size=m
+                                                    ).astype(np.float32)
+
+        offspring['energy'] -= parent_reproduction_costs
         self._organisms['energy'][reproducing] -= parent_reproduction_costs
         width, length = self._env.get_width(), self._env.get_length()
         raw_x = parents['x_pos'] + offset[:, 0]
@@ -195,10 +295,10 @@ class Organisms:
         env_terrain = self._env.get_terrain()
         n = number_of_organisms
 
-        str15 = np.str_
+        np.str_ = np.str_
         if randomize:
             # species label
-            species_arr = np.full((n,), "ORG", dtype=str15)
+            species_arr = np.full((n,), "ORG", dtype=np.str_)
             #
             # — MorphologicalGenes —
             size_arr        = np.random.uniform(
@@ -244,7 +344,7 @@ class Organisms:
                 size=(n,)
             ).astype(np.float32)
 
-            diet_type_arr = np.random.choice(self._gene_pool['diet_type'], size=n).astype(str15)
+            diet_type_arr = np.random.choice(self._gene_pool['diet_type'], size=n).astype(np.str_)
             #
             # — ReproductionGenes —
             fertility_rate_arr = np.random.uniform(
@@ -262,7 +362,7 @@ class Organisms:
             reproduction_type_arr = np.random.choice(
                 self._gene_pool['reproduction_type'],
                 size=n
-            ).astype(str15)
+            ).astype(np.str_)
 
             pack_behavior_arr = np.random.choice(
                 self._gene_pool['pack_behavior'],
@@ -292,7 +392,7 @@ class Organisms:
             ).astype(np.float32)
 
         else:
-            species_arr = np.full((n,), "ORG", dtype=str15)
+            species_arr = np.full((n,), "ORG", dtype=np.str_)
             size_arr = np.full((n,), 1.0, dtype=np.float32)
             camouflage_arr = np.zeros((n,), dtype=np.float32)
             defense_arr = np.zeros((n,), dtype=np.float32)
@@ -302,11 +402,11 @@ class Organisms:
             vision_arr = np.full((n,), 15, dtype=np.float32)
             metabolism_rate_arr = np.full((n,), 1.0, dtype=np.float32)
             nutrient_efficiency_arr = np.full((n,), 1.0, dtype=np.float32)
-            diet_type_arr = np.full((n,), self._gene_pool['diet_type'][0], dtype=str15)
+            diet_type_arr = np.full((n,), self._gene_pool['diet_type'][0], dtype=np.str_)
 
             fertility_rate_arr = np.full((n,), 0.1, dtype=np.float32)
             offspring_count_arr = np.full((n,), 1, dtype=np.int32)
-            reproduction_type_arr = np.full((n,), self._gene_pool['reproduction_type'][0], dtype=str15)
+            reproduction_type_arr = np.full((n,), self._gene_pool['reproduction_type'][0], dtype=np.str_)
 
             pack_behavior_arr = np.full((n,), False, dtype=np.bool_)
             symbiotic_arr = np.full((n,), False, dtype=np.bool_)
@@ -368,6 +468,7 @@ class Organisms:
         spawned['x_pos']             = positions_f[:, 0]
         spawned['y_pos']             = positions_f[:, 1]
 
+        
         # --- append to full array and update births ---
         self._organisms = np.concatenate((self._organisms, spawned))
         self._env.add_births(valid_count)
@@ -396,7 +497,7 @@ class Organisms:
             (walk_only & ~land_mask)
 
         # subtract 5 energy per violation (they die via remove_dead when energy ≤ 0)
-        orgs['energy'][penalty] -= 5
+        orgs['energy'][penalty] -= 0.1 * orgs['metabolism_rate'][penalty]
 
         coords = np.stack((orgs['x_pos'], orgs['y_pos']), axis=1)
         vision_radii = orgs['vision']
@@ -460,25 +561,10 @@ class Organisms:
             if my_diet == 'Photo':
 
                 my['energy'] += 0.02
-
-                WATER_PUSH = 5.0
-                LAND_PUSH = 5.0
                 
                 move_vec = np.zeros(2, dtype=np.float32)
-                
-                if not my_swim:
-                    move_vec += WATER_PUSH * avoid_water[i]
-                if not my_walk:
-                    move_vec += LAND_PUSH * avoid_land[i]
-                # normalize & scale by speed
-                norm = np.linalg.norm(move_vec)
-                step = (move_vec / norm) * \
-                    my_speed if norm > 0 else np.zeros(2, np.float32)
 
-                new = pos + step
-                new[0] = np.clip(new[0], 0, width - 1)
-                new[1] = np.clip(new[1], 0, length - 1)
-                return new
+                return move_vec
 
             # make neighbors a NumPy array of ints
             neighs = np.asarray(neighs, dtype=int)
@@ -551,7 +637,7 @@ class Organisms:
                 new[1] = np.clip(new[1], 0, length - 1)
                 dist = np.linalg.norm(new - pos)
                 # use the per‐organism metabolism_rate
-                my['energy'] -= dist * my['metabolism_rate']
+                my['energy'] -= dist * 0.01* my['metabolism_rate']
                 return new
 
             # — social steering (non-pack) —
@@ -600,7 +686,7 @@ class Organisms:
             new[0] = np.clip(new[0], 0, width - 1)
             new[1] = np.clip(new[1], 0, length - 1)
             dist = np.linalg.norm(new - pos)
-            my['energy'] -= dist * my['metabolism_rate']
+            my['energy'] -= dist * 0.01 * my['metabolism_rate']
 
             return new
         old_coords = coords
@@ -613,7 +699,7 @@ class Organisms:
 
         orgs['x_pos'], orgs['y_pos'] = new_pos[:, 0], new_pos[:, 1]
         distances = np.linalg.norm(new_pos - old_coords, axis=1)
-        move_costs = distances * orgs['metabolism_rate']
+        move_costs = 0.01* distances * orgs['metabolism_rate']
         orgs['energy'] -= move_costs
 
         self.build_spatial_index()
@@ -635,6 +721,7 @@ class Organisms:
         deff   = orgs['defense']
         vision = orgs['vision']
         pack   = orgs['pack_behavior']
+        dt     = orgs['diet_type']
         fly    = orgs['fly']
         swim   = orgs['swim']
         walk   = orgs['walk']
@@ -672,6 +759,22 @@ class Organisms:
         invalid |= (~swim[i] & swim[j] & (tiles < 0))
         invalid |= ( swim[i] & ~walk[i] & (tiles >= 0))
         invalid |= ( swim[i] & ~fly[i]  & fly[j] & (tiles < 0))
+
+        # —–––––– diet‐type restrictions –––––— #
+        dt = orgs['diet_type']
+        dt_i = dt[i]  # attacker diets
+        dt_j = dt[j]  # defender diets
+
+        # 1) Photo attackers can never attack anyone:
+        invalid |= (dt_i == 'Photo')
+
+        # 2) Herb attackers can only attack Photo or Parasite, so anything else is invalid:
+        invalid |= ((dt_i == 'Herb') & ~np.isin(dt_j, ['Photo', 'Parasite']))
+
+        # 3) Carn attackers cannot attack Photo:
+        invalid |= ((dt_i == 'Carn') &  (dt_j == 'Photo'))
+
+        # Omni and Parasite attackers have no extra restrictions, so we leave them out.
 
         valid_mask = ~invalid
         i = i[valid_mask]

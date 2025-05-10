@@ -55,8 +55,12 @@ class Organisms:
         self._pos_tree = None
         self._organisms = np.zeros((0,), dtype=self._organism_dtype)
         self._env = env
+        self._mutation_rate = 0.05
         # TODO: Load genes from json file
         self._gene_pool = None
+        
+        self._ancestry = {}
+        self._species_count = {}
         
         # Garbage collection optimization - scratch buffers
         self._dirs = np.array([[1,0],[-1,0],[0,1],[0,-1]], np.float32)
@@ -67,6 +71,12 @@ class Organisms:
     # Get methods
     def get_organisms(self):
         return self._organisms
+
+    def get_ancestries(self):
+        return self._ancestry
+
+    def get_species_count(self):
+        return self._species_count
 
     # Set methods
     def set_organisms(self, new_organisms):
@@ -91,7 +101,7 @@ class Organisms:
             self._pos_tree = None
 
     def spawn_initial_organisms(self, number_of_organisms: int,
-                                randomize: bool = False) -> int:
+                                randomize: bool = True) -> int:
         """
         Spawns the initial organisms in the simulation.
         Organism stats can be randomized if desired.
@@ -107,53 +117,104 @@ class Organisms:
         env_width = self._env.get_width()
         env_length = self._env.get_length()
         env_terrain = self._env.get_terrain()
-        grid_size = env_width
-
-        # --- build raw parameter arrays ---
         n = number_of_organisms
-        # string dtype shorthand
-        str15 = np.dtype('U15')
 
+        str15 = np.str_
         if randomize:
             # species label
             species_arr = np.full((n,), "ORG", dtype=str15)
             #
             # — MorphologicalGenes —
-            size_arr = np.random.rand(n).astype(np.float32)
-            camouflage_arr = np.random.rand(n).astype(np.float32)
-            defense_arr = np.random.rand(n).astype(np.float32)
-            attack_arr = np.random.rand(n).astype(np.float32)
-            vision_arr = np.random.rand(n).astype(np.float32)
+            size_arr        = np.random.uniform(
+                low=self._gene_pool['size'][0],
+                high=self._gene_pool['size'][1],
+                size=(n,)
+            ).astype(np.float32)
+
+            camouflage_arr  = np.random.uniform(
+                low=self._gene_pool['camouflage'][0],
+                high=self._gene_pool['camouflage'][1],
+                size=(n,)
+            ).astype(np.float32)
+
+            defense_arr     = np.random.uniform(
+                low=self._gene_pool['defense'][0],
+                high=self._gene_pool['defense'][1],
+                size=(n,)
+            ).astype(np.float32)
+
+            attack_arr      = np.random.uniform(
+                low=self._gene_pool['attack'][0],
+                high=self._gene_pool['attack'][1],
+                size=(n,)
+            ).astype(np.float32)
+
+            vision_arr      = np.random.uniform(
+                low=self._gene_pool['vision'][0],
+                high=self._gene_pool['vision'][1],
+                size=(n,)
+            ).astype(np.float32)
             #
             # — MetabolicGenes —
-            metabolism_rate_arr = np.random.rand(n).astype(np.float32)
-            nutrient_efficiency_arr = np.random.rand(n).astype(np.float32)
-            diet_type_arr = np.full((n,), "heterotroph", dtype=str15)
+            metabolism_rate_arr = np.random.uniform(
+                low=self._gene_pool['metabolism_rate'][0],
+                high=self._gene_pool['metabolism_rate'][1],
+                size=(n,)
+            ).astype(np.float32)
+
+            nutrient_efficiency_arr = np.random.uniform(
+                low=self._gene_pool['nutrient_efficiency'][0],
+                high=self._gene_pool['nutrient_efficiency'][1],
+                size=(n,)
+            ).astype(np.float32)
+
+            diet_type_arr = np.random.choice(self._gene_pool['diet_type'], size=n).astype(str15)
             #
             # — ReproductionGenes —
-            fertility_rate_arr = np.random.rand(n).astype(np.float32)
+            fertility_rate_arr = np.random.uniform(
+                low=self._gene_pool['fertility_rate'][0],
+                high=self._gene_pool['fertility_rate'][1],
+                size=(n,)
+            ).astype(np.float32)
+
             offspring_count_arr = np.random.randint(
-                1, 5, size=(n,)).astype(np.int32)
-            reproduction_type_arr = np.full((n,), "asexual", dtype=str15)
-            #
-            # — BehavioralGenes —
+                self._gene_pool['offspring_count'][0],
+                self._gene_pool['offspring_count'][1] + 1,
+                size=(n,)
+            ).astype(np.int32)
+
+            reproduction_type_arr = np.random.choice(
+                self._gene_pool['reproduction_type'],
+                size=n
+            ).astype(str15)
+
             pack_behavior_arr = np.random.choice(
-                [False, True], size=(n,)).astype(np.bool_)
+                self._gene_pool['pack_behavior'],
+                size=n
+            ).astype(np.bool_)
+
             symbiotic_arr = np.random.choice(
-                [False, True], size=(n,)).astype(np.bool_)
+                self._gene_pool['symbiotic'],
+                size=n
+            ).astype(np.bool_)
             # — LocomotionGenes —
-            swim_arr = np.random.choice(
-                [False, True], size=(n,)).astype(np.bool_)
-            walk_arr = np.random.choice(
-                [False, True], size=(n,)).astype(np.bool_)
-            fly_arr = np.random.choice(
-                [False, True], size=(n,)).astype(np.bool_)
+            swim_arr = np.random.choice(self._gene_pool['swim'], size=n).astype(np.bool_)
+            walk_arr = np.random.choice(self._gene_pool['walk'], size=n).astype(np.bool_)
+            fly_arr  = np.random.choice(self._gene_pool['fly'],  size=n).astype(np.bool_)
+
             speed_arr = np.random.uniform(
-                0.1, 5.0, size=(n,)).astype(np.float32)
+                low=self._gene_pool['speed'][0],
+                high=self._gene_pool['speed'][1],
+                size=(n,)
+            ).astype(np.float32)
             #
             # — Simulation bookkeeping —
             energy_arr = np.random.uniform(
-                10, 20, size=(n,)).astype(np.float32)
+                low=10,
+                high=30,
+                size=(n,)
+            ).astype(np.float32)
+
         else:
             species_arr = np.full((n,), "ORG", dtype=str15)
             size_arr = np.full((n,), 1.0, dtype=np.float32)
@@ -165,11 +226,11 @@ class Organisms:
             vision_arr = np.full((n,), 15, dtype=np.float32)
             metabolism_rate_arr = np.full((n,), 1.0, dtype=np.float32)
             nutrient_efficiency_arr = np.full((n,), 1.0, dtype=np.float32)
-            diet_type_arr = np.full((n,), "heterotroph", dtype=str15)
+            diet_type_arr = np.full((n,), self._gene_pool['diet_type'][0], dtype=str15)
 
             fertility_rate_arr = np.full((n,), 0.1, dtype=np.float32)
             offspring_count_arr = np.full((n,), 1, dtype=np.int32)
-            reproduction_type_arr = np.full((n,), "asexual", dtype=str15)
+            reproduction_type_arr = np.full((n,), self._gene_pool['reproduction_type'][0], dtype=str15)
 
             pack_behavior_arr = np.full((n,), False, dtype=np.bool_)
             symbiotic_arr = np.full((n,), False, dtype=np.bool_)
@@ -178,63 +239,58 @@ class Organisms:
             walk_arr = np.full((n,), True,  dtype=np.bool_)
             fly_arr = np.full((n,), False, dtype=np.bool_)
             speed_arr = np.full((n,), 1.0,  dtype=np.float32)
-
             energy_arr = np.full((n,), 20, dtype=np.float32)
 
         # --- pick random positions and filter to valid land cells ---
-        positions = (
-            np.random.randint(0, grid_size, size=(n, 2))
-            .astype(np.float32)
-        )
-        # bounds check
-        mask = (
-            (positions[:, 0] >= 0) & (positions[:, 0] < env_width) &
-            (positions[:, 1] >= 0) & (positions[:, 1] < env_length)
-        )
-        positions = positions[mask]
+        positions = np.random.randint(0, env_width, size=(n, 2)).astype(np.int32)
 
-        # land check
-        ix = positions[:, 0].astype(np.int32)
-        iy = positions[:, 1].astype(np.int32)
+
+        # 2) Lookup terrain at each candidate
+        ix = positions[:, 0]
+        iy = positions[:, 1]
         terrain_values = env_terrain[iy, ix]
 
+        # 3) Build locomotion-only masks
         swim_only = swim_arr & ~walk_arr & ~fly_arr
         walk_only = walk_arr & ~swim_arr & ~fly_arr
-        # Flyers can be anywhere
-        valid_fly_positions = positions[fly_arr]
-        valid_swim_positions = positions[swim_only & (
-            terrain_values < 0)]  # Swimmers need water
-        valid_walk_positions = positions[walk_only & (
-            terrain_values >= 0)]  # Walkers need land
-        positions = np.concatenate(
-            (valid_fly_positions, valid_swim_positions, valid_walk_positions), axis=0)
+        # flyers: just fly_arr
+        
+        
+        # 4) Filter out invalid positions
+        valid_fly   = positions[ fly_arr ]
+        valid_swim  = positions[ swim_only &  (terrain_values <  0) ]
+        valid_walk  = positions[ walk_only & (terrain_values >= 0) ]
 
+        # 5) Concatenate all valid positions, count them
+        positions = np.concatenate((valid_fly, valid_swim, valid_walk), axis=0)
         valid_count = positions.shape[0]
-
+        
         # --- truncate all arrays to the number of valid spots ---
         # --- pack into structured array ---
-        spawned = np.zeros((valid_count,), dtype=self._organism_dtype)
-        spawned['species'] = species_arr[:valid_count]
-        spawned['size'] = size_arr[:valid_count]
-        spawned['camouflage'] = camouflage_arr[:valid_count]
-        spawned['defense'] = defense_arr[:valid_count]
-        spawned['attack'] = attack_arr[:valid_count]
-        spawned['vision'] = vision_arr[:valid_count]
-        spawned['metabolism_rate'] = metabolism_rate_arr[:valid_count]
-        spawned['nutrient_efficiency'] = nutrient_efficiency_arr[:valid_count]
-        spawned['diet_type'] = diet_type_arr[:valid_count]
-        spawned['fertility_rate'] = fertility_rate_arr[:valid_count]
-        spawned['offspring_count'] = offspring_count_arr[:valid_count]
-        spawned['reproduction_type'] = reproduction_type_arr[:valid_count]
-        spawned['pack_behavior'] = pack_behavior_arr[:valid_count]
-        spawned['symbiotic'] = symbiotic_arr[:valid_count]
-        spawned['swim'] = swim_arr[:valid_count]
-        spawned['walk'] = walk_arr[:valid_count]
-        spawned['fly'] = fly_arr[:valid_count]
-        spawned['speed'] = speed_arr[:valid_count]
-        spawned['energy'] = energy_arr[:valid_count]
-        spawned['x_pos'] = positions[:, 0]
-        spawned['y_pos'] = positions[:, 1]
+        spawned = np.zeros(valid_count, dtype=self._organism_dtype)
+        spawned['species']            = species_arr[:valid_count]
+        spawned['size']               = size_arr[:valid_count]
+        spawned['camouflage']         = camouflage_arr[:valid_count]
+        spawned['defense']            = defense_arr[:valid_count]
+        spawned['attack']             = attack_arr[:valid_count]
+        spawned['vision']             = vision_arr[:valid_count]
+        spawned['metabolism_rate']    = metabolism_rate_arr[:valid_count]
+        spawned['nutrient_efficiency']= nutrient_efficiency_arr[:valid_count]
+        spawned['diet_type']          = diet_type_arr[:valid_count]
+        spawned['fertility_rate']     = fertility_rate_arr[:valid_count]
+        spawned['offspring_count']    = offspring_count_arr[:valid_count]
+        spawned['reproduction_type']  = reproduction_type_arr[:valid_count]
+        spawned['pack_behavior']      = pack_behavior_arr[:valid_count]
+        spawned['symbiotic']          = symbiotic_arr[:valid_count]
+        spawned['swim']               = swim_arr[:valid_count]
+        spawned['walk']               = walk_arr[:valid_count]
+        spawned['fly']                = fly_arr[:valid_count]
+        spawned['speed']              = speed_arr[:valid_count]
+        spawned['energy']             = energy_arr[:valid_count]
+        # positions is int32 → cast to float32 for x_pos/y_pos
+        positions_f = positions.astype(np.float32)
+        spawned['x_pos']             = positions_f[:, 0]
+        spawned['y_pos']             = positions_f[:, 1]
 
         # --- append to full array and update births ---
         self._organisms = np.concatenate((self._organisms, spawned))

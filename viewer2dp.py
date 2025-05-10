@@ -15,7 +15,7 @@ class Viewer2D:
     def __init__(
             self,
             environment,
-            window_size=(1000, 800),
+            window_size=(1920, 1280),
             sidebar_width=200
     ):
         """
@@ -153,10 +153,12 @@ class Viewer2D:
         """
         Display births, deaths, and average energy of the alive population.
         """
+        alive_mask = (self.env.get_organisms().get_organisms()['energy'] >= 0)
         alive = self.env.get_organisms().get_organisms()
         births = self.env.get_total_births()
         deaths = self.env.get_total_deaths()
-        avg_energy = np.mean(alive['energy']) if len(alive) > 0 else 0
+        masked = alive['energy'][alive_mask]
+        avg_energy = np.mean(masked) if masked.size > 0 else 0
 
         birth_text = self.font.render(
             f"Births: {births}", True, (255, 255, 255)

@@ -55,6 +55,8 @@ class Organisms:
         self._pos_tree = None
         self._organisms = np.zeros((0,), dtype=self._organism_dtype)
         self._env = env
+        self._width = env.get_width()
+        self._length = env.get_length()
         self._mutation_rate = 0.05
         # TODO: Load genes from json file
         self._gene_pool = None
@@ -247,7 +249,7 @@ class Organisms:
                                                         size=m
                                                     ).astype(np.float32)
 
-        offspring['energy'] -= parent_reproduction_costs
+        offspring['energy'] = parent_reproduction_costs
         self._organisms['energy'][reproducing] -= parent_reproduction_costs
         width, length = self._env.get_width(), self._env.get_length()
         raw_x = parents['x_pos'] + offset[:, 0]
@@ -271,8 +273,11 @@ class Organisms:
         #         self._ancestry[child] = self._ancestry[parent].copy()
         #         self._ancestry[child].append(parent)
 
-        self._organisms = np.concatenate((self._organisms, offspring))
         self._env.add_births(offspring.shape[0])
+        self._organisms = np.concatenate((self._organisms, offspring))
+
+
+
 
 
 
@@ -557,10 +562,9 @@ class Organisms:
             my_swim = swim_flag[i]
             my_walk = walk_flag[i]
             my_speed = speed[i]
-
             if my_diet == 'Photo':
 
-                my['energy'] += 0.02
+                my['energy'] += 0.005
                 
                 move_vec = np.zeros(2, dtype=np.float32)
 

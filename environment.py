@@ -1,6 +1,7 @@
 from noise import pnoise2
 from scipy.ndimage import zoom, gaussian_gradient_magnitude
 import numpy as np
+import pprint
 from organism import Organisms
 
 
@@ -69,8 +70,10 @@ class Environment:
         Steps one generation forward in the simulation.
         """
         if self._generation % 100 == 0:      
-            print(self._organisms.get_ancestries())
-           
+            sp_dict = self._organisms.get_species_count()
+            for key in sp_dict:
+                print(key)
+
 
         # Organisms take an action
         # TODO: Implement action decision making,

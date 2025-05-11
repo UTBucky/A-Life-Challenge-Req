@@ -79,7 +79,7 @@ class Viewer2D:
         self._skip_button.draw_button()
 
         pygame.display.flip()
-        self.clock.tick(100)
+        self.clock.tick(10)
         self.timestep += 1
 
     def draw_terrain(self):

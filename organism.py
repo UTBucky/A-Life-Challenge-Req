@@ -2,20 +2,13 @@ import numpy as np
 from scipy.spatial import cKDTree
 import random
 
+
 class Organisms:
     """
     Represents all organisms in an environment.
     Keeps track of all organism's statistics.
     """
-
-    def __init__(self, env: object):
-        """
-        Initialize an organism object.
-
-        :param env: 2D Simulation Environment object
-        """
-
-        self._organism_dtype = np.dtype([
+    ORGANISM_CLASS = np.dtype([
             # species label
             ('species',           np.str_,   15),
 
@@ -51,6 +44,14 @@ class Organisms:
             ('x_pos',             np.float32),
             ('y_pos',             np.float32),
         ])
+    def __init__(self, env: object, O_CLASS = ORGANISM_CLASS):
+        """
+        Initialize an organism object.
+
+        :param env: 2D Simulation Environment object
+        """
+
+        self._organism_dtype = O_CLASS
 
         self._pos_tree = None
         self._organisms = np.zeros((0,), dtype=self._organism_dtype)
@@ -107,20 +108,39 @@ class Organisms:
         Causes all organisms that can to reproduce.
         Spawns offspring near the parent
         """
+        orgs = self._organisms
+        coords        = np.stack((orgs['x_pos'], orgs['y_pos']), axis=1)
+        vision_radii  = orgs['vision']
+        tree          = self._pos_tree  # a cKDTree built on coords
 
+        # 1) Find all neighbors within vision (still list of lists)
+        neigh_lists = tree.query_ball_point(coords, vision_radii)
+
+        # 2) Vectorized: find each organism’s *distance* to its nearest *other* neighbor
+        #    - query k=2: idx 0 is self (dist=0), idx 1 is true nearest neighbor
+        dists, idxs = tree.query(coords, k=2)     # dists.shape == (N,2)
+        nearest_dist = dists[:, 1]                # shape (N,)
+
+        # 3) Build a boolean mask of “safe” organisms
+        too_close   = 7.5
+        safe_mask   = nearest_dist >= too_close   # True if OK to interact
+
+        
         # Obtains an array of all reproducing organisms
         reproducing = (self._organisms['energy']
                     >
                     (self._organisms['fertility_rate']
                     *
                     self._organisms['size'])*10)
+        
+        
         if not np.any(reproducing):
             return
-
-        parents = self._organisms[reproducing]
+        parent_mask = reproducing & safe_mask
+        parents = self._organisms[parent_mask]
         parent_reproduction_costs = (10*
-            self._organisms['fertility_rate'][reproducing]
-            * self._organisms['size'][reproducing]
+            self._organisms['fertility_rate'][parent_mask]
+            * self._organisms['size'][parent_mask]
         )
 
         # TODO: Implement number of children, currently just one offspring
@@ -255,7 +275,7 @@ class Organisms:
                                                     ).astype(np.float32)
 
         offspring['energy'] = parent_reproduction_costs
-        self._organisms['energy'][reproducing] -= parent_reproduction_costs
+        self._organisms['energy'][parent_mask] -= parent_reproduction_costs
         width, length = self._width, self._length
         raw_x = parents['x_pos'] + offset[:, 0]
         raw_y = parents['y_pos'] + offset[:, 1]
@@ -272,7 +292,7 @@ class Organisms:
             count   = counts[i]
             if species not in self._species_count:
                 self._species_count[species] = count
-                print(f"New species added: {species} (initial count = {count})")
+                print(f"New species added: {species} ({count})")
         # # TODO: Possible to enhance this?
         # # Handles speciation and lineage tracking
         # for i in range(offspring.shape[0]):
@@ -599,8 +619,9 @@ class Organisms:
             my_walk = walk_flag[i]
             my_speed = speed[i]
             if my_diet == 'Photo':
-                my['energy'] += 1
+                my['energy'] += 0.25
                 my_def = 0
+                my_att = 0
                 move_vec = np.zeros(2, dtype=np.float32)
 
                 return move_vec
@@ -857,6 +878,9 @@ class Organisms:
             dmg   = my_net[prey]
             energy[idx_j] -= dmg      # defender loses
             energy[idx_i] += dmg      # attacker gains
+        
+        #prep for reproduction
+        self.build_spatial_index()
 
     def kill_border(self, margin: float = 0.03):
         """

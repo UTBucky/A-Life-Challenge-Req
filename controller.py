@@ -5,7 +5,7 @@ from load_genes import load_genes_from_file
 
 # Variables for setup/testing
 GRID_SIZE = 1000         # Determines size of environment
-NUM_ORGANISMS = 100    # Attempt organism creation this many times
+NUM_ORGANISMS = 1000    # Attempt organism creation this many times
 
 
 def main():

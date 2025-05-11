@@ -2,7 +2,7 @@ import numpy as np
 from scipy.spatial import cKDTree
 from scipy.cluster.hierarchy import DisjointSet
 import random
-
+from collections import defaultdict
 
 class Organisms:
     """
@@ -88,8 +88,7 @@ class Organisms:
         return self._ancestry
 
     def get_disjointset(self):
-        groups = list(self._ds.subsets())  
-        return groups
+        return self._ds
 
     def get_species_count(self):
         return self._species_count
@@ -329,7 +328,7 @@ class Organisms:
         for species, c_id, p_id in zip(species_arr, c_id_arr, p_id_arr):
             if species not in self._species_count:
                 # store as [c_id, p_id, generation]
-                self._species_count[species] = [c_id, p_id, gen]
+                self._species_count[species] = [int(c_id), int(p_id), gen]
                 print(f"New species added: {species} ({gen})")
 
         self._env.add_births(offspring.shape[0])

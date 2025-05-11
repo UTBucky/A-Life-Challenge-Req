@@ -2,7 +2,8 @@ from noise import pnoise2
 from scipy.ndimage import zoom, gaussian_gradient_magnitude
 import numpy as np
 from organism import Organisms
-
+from collections import defaultdict
+from scipy.cluster.hierarchy import DisjointSet
 
 class Environment:
     """
@@ -68,6 +69,11 @@ class Environment:
         """
         Steps one generation forward in the simulation.
         """
+        if self._generation % 100 == 0 and self._generation > 0:
+            tree = build_newick_trees(self._organisms.get_species_count(), self._organisms.get_disjointset())
+            print(tree)
+            export_newick_to_file(tree)
+            
         self._organisms.build_spatial_index()
         self._organisms.move()
         self._organisms.resolve_attacks()
@@ -77,6 +83,110 @@ class Environment:
         self._organisms.remove_dead()
         self._organisms.get_organisms()['energy'] -= 0.01
         self._generation += 1
+        
+def export_newick_to_file(newick_list, output_path='output.nwk'):
+    """
+    Writes a list of Newick strings to the specified file, one per line.
+    """
+    with open(output_path, 'w') as out_file:
+        for tree in newick_list:
+            out_file.write(tree + '\n')
+    print(f"Wrote {len(newick_list)} trees to {output_path}")
+
+def build_newick_trees(species_source, dsu, include_clusters=True):
+    """
+    Construct Newick-formatted trees, clustering by DSU sets.
+    Named species are used as cluster roots; other PIDs attach below.
+    Omit branch lengths for unknown PIDs.
+
+    Args:
+      species_source: dict mapping species_name -> (pid, parent, gen)
+      dsu: DisjointSet instance containing all organism IDs
+      include_clusters: if True, one tree per DSU cluster; if False, one per forest root.
+
+    Returns:
+      List of Newick strings.
+    """
+    # Extract species_dict from dict or class
+    if hasattr(species_source, 'items'):
+        species_dict = species_source
+    elif hasattr(species_source, '_species_count'):
+        species_dict = species_source._species_count
+    else:
+        raise TypeError("species_source must be a dict or have attribute '_species_count'")
+
+    # Step 1: raw metadata from named species
+    id_to_meta = {}
+    for name, (pid, parent, gen) in species_dict.items():
+        id_to_meta[pid] = {'species': name, 'parent': parent, 'gen': gen}
+    named_pids = set(id_to_meta)
+
+    # Step 2: attach DSU-only PIDs under named cluster root
+    if include_clusters:
+        all_ds_pids = set().union(*dsu.subsets())
+    else:
+        all_ds_pids = set(id_to_meta.keys())
+    for pid in all_ds_pids:
+        if pid not in id_to_meta:
+            # find any named representative in same cluster
+            rep = next((n for n in named_pids if int(dsu[n]) == int(dsu[pid])), None)
+            if rep is None:
+                continue
+            parent = rep
+            gen = id_to_meta[rep]['gen'] + 1
+            id_to_meta[pid] = {'species': str(pid), 'parent': parent, 'gen': gen}
+
+    # Build adjacency
+    children = defaultdict(list)
+    for pid, meta in id_to_meta.items():
+        children[meta['parent']].append(pid)
+
+    # Recursive Newick
+    def to_newick(pid, visited=None):
+        if visited is None:
+            visited = set()
+        if pid in visited:
+            return ''
+        visited.add(pid)
+
+        meta = id_to_meta[pid]
+        gen = meta['gen']
+        subs = []
+        for c in children.get(pid, []):
+            if c == pid:
+                continue
+            length = id_to_meta[c]['gen'] - gen
+            subtree = to_newick(c, visited.copy())
+            if not subtree:
+                continue
+            # omit branch length for unknown (numeric) children
+            if c not in named_pids:
+                subs.append(f"{subtree}")
+            else:
+                subs.append(f"{subtree}:{length}")
+        label = meta['species']
+        if subs:
+            return f"({','.join(subs)}){label}"
+        else:
+            return label
+
+    # Generate output
+    newick_list = []
+    if include_clusters:
+        # for each DSU set, pick named root
+        for clade in dsu.subsets():
+            root = next((n for n in named_pids if n in clade), None)
+            if root is not None:
+                newick_list.append(to_newick(root) + ';')
+    else:
+        # forest: roots whose parent isn't in map
+        roots = [pid for pid, m in id_to_meta.items()
+                 if m['parent'] not in id_to_meta or m['parent'] == pid]
+        for root in roots:
+            newick_list.append(to_newick(root) + ';')
+
+    return newick_list
+
 
 def generate_fractal_terrain(
     width,

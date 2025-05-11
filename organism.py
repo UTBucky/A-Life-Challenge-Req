@@ -221,105 +221,12 @@ class Organisms:
 
 
         if randomize:
-            # species label
-            species_arr = np.full((n,), "ORG", dtype=np.str_)
-            #
-            # — MorphologicalGenes —
-            size_arr        = np.random.uniform(
-                low=self._gene_pool['size'][0],
-                high=self._gene_pool['size'][1],
-                size=(n,)
-            ).astype(np.float32)
-
-            camouflage_arr  = np.random.uniform(
-                low=self._gene_pool['camouflage'][0],
-                high=self._gene_pool['camouflage'][1],
-                size=(n,)
-            ).astype(np.float32)
-
-            defense_arr     = np.random.uniform(
-                low=self._gene_pool['defense'][0],
-                high=self._gene_pool['defense'][1],
-                size=(n,)
-            ).astype(np.float32)
-
-            attack_arr      = np.random.uniform(
-                low=self._gene_pool['attack'][0],
-                high=self._gene_pool['attack'][1],
-                size=(n,)
-            ).astype(np.float32)
-
-            vision_arr      = np.random.uniform(
-                low=self._gene_pool['vision'][0],
-                high=self._gene_pool['vision'][1],
-                size=(n,)
-            ).astype(np.float32)
-            #
-            # — MetabolicGenes —
-            metabolism_rate_arr = np.random.uniform(
-                low=self._gene_pool['metabolism_rate'][0],
-                high=self._gene_pool['metabolism_rate'][1],
-                size=(n,)
-            ).astype(np.float32)
-
-            nutrient_efficiency_arr = np.random.uniform(
-                low=self._gene_pool['nutrient_efficiency'][0],
-                high=self._gene_pool['nutrient_efficiency'][1],
-                size=(n,)
-            ).astype(np.float32)
-            p = [0.50,   # Herb 50%
-                0.20,   # Omni 20%
-                0.20,   # Carn 20%
-                0.05,  # Photo 5%
-                0.05]  # Parasite 5%
-            diet_type_arr = np.random.choice(self._gene_pool['diet_type'], size=n, p=p).astype(np.str_)
-            #
-            # — ReproductionGenes —
-            fertility_rate_arr = np.random.uniform(
-                low=self._gene_pool['fertility_rate'][0],
-                high=self._gene_pool['fertility_rate'][1],
-                size=(n,)
-            ).astype(np.float32)
-
-            offspring_count_arr = np.random.randint(
-                self._gene_pool['offspring_count'][0],
-                self._gene_pool['offspring_count'][1] + 1,
-                size=(n,)
-            ).astype(np.int32)
-
-            reproduction_type_arr = np.random.choice(
-                self._gene_pool['reproduction_type'],
-                size=n
-            ).astype(np.str_)
-
-            pack_behavior_arr = np.random.choice(
-                self._gene_pool['pack_behavior'],
-                size=n
-            ).astype(np.bool_)
-
-            symbiotic_arr = np.random.choice(
-                self._gene_pool['symbiotic'],
-                size=n
-            ).astype(np.bool_)
-            #
-            # — LocomotionGenes —
-            swim_arr = np.random.choice(self._gene_pool['swim'], size=n).astype(np.bool_)
-            walk_arr = np.random.choice(self._gene_pool['walk'], size=n).astype(np.bool_)
-            fly_arr  = np.random.choice(self._gene_pool['fly'],  size=n).astype(np.bool_)
-
-            speed_arr = np.random.uniform(
-                low=self._gene_pool['speed'][0],
-                high=self._gene_pool['speed'][1],
-                size=(n,)
-            ).astype(np.float32)
-            #
-            # — Simulation bookkeeping —
-            energy_arr = np.random.uniform(
-                low=10,
-                high=30,
-                size=(n,)
-            ).astype(np.float32)
-
+            species_arr, size_arr, camouflage_arr, defense_arr, attack_arr, \
+            vision_arr, metabolism_rate_arr, nutrient_efficiency_arr, \
+            diet_type_arr, fertility_rate_arr, offspring_count_arr, \
+            reproduction_type_arr, pack_behavior_arr, symbiotic_arr, \
+            swim_arr, walk_arr, fly_arr, speed_arr, energy_arr = \
+            initialize_random_traits(n, self._gene_pool)
         else:
             species_arr, size_arr, camouflage_arr, defense_arr, attack_arr, \
             vision_arr, metabolism_rate_arr, nutrient_efficiency_arr, \
@@ -330,7 +237,6 @@ class Organisms:
 
         # --- pick random positions and filter to valid land cells ---
         positions = np.random.randint(0, env_width, size=(n, 2)).astype(np.int32)
-
 
         # 2) Lookup terrain at each candidate
         ix = positions[:, 0]

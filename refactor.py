@@ -47,6 +47,7 @@ def copy_valid_count(
         spawned['energy']             = energy_arr[:valid_count]
     return spawned
 
+
 def copy_parent_fields( 
     parents: np.ndarray, 
     offspring: np.ndarray,
@@ -70,6 +71,7 @@ def copy_parent_fields(
     offspring['fly']               = parents['fly']
     offspring['speed']             = parents['speed']
     return 
+
 
 def mutate_offspring(
     offspring, 
@@ -219,6 +221,100 @@ def initialize_default_traits(
     fly_arr                = np.full((n,), False, dtype=np.bool_)
     speed_arr              = np.full((n,), 1.0, dtype=np.float32)
     energy_arr             = np.full((n,), 20,  dtype=np.float32)
+    #
+    # Return in a tuple is ok because it's a wrapping of pointers
+    #
+    # Under the hood in python multicasting is construction and 
+    # deconstruction of tuples anyways
+    #
+    return (
+        species_arr, size_arr, camouflage_arr, defense_arr, attack_arr,
+        vision_arr, metabolism_rate_arr, nutrient_efficiency_arr,
+        diet_type_arr, fertility_rate_arr, offspring_count_arr,
+        reproduction_type_arr, pack_behavior_arr, symbiotic_arr,
+        swim_arr, walk_arr, fly_arr, speed_arr, energy_arr
+    )
+
+
+def initialize_random_traits(
+    n: int,
+    gene_pool: Dict[str, list]
+) -> Tuple[
+    np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray,
+    np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray,
+    np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray,
+    np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray
+]:
+    """
+    Create randomized trait arrays for n organisms based on gene_pool.
+    Returns in order:
+      species_arr, size_arr, camouflage_arr, defense_arr, attack_arr,
+      vision_arr, metabolism_rate_arr, nutrient_efficiency_arr,
+      diet_type_arr, fertility_rate_arr, offspring_count_arr,
+      reproduction_type_arr, pack_behavior_arr, symbiotic_arr,
+      swim_arr, walk_arr, fly_arr, speed_arr, energy_arr
+    """
+    # species label
+    species_arr = np.full((n,), "ORG", dtype=np.str_)
+
+    # helper for uniform floats
+    def uni(key):
+        lo, hi = gene_pool[key]
+        return np.random.uniform(lo, hi, size=(n,)).astype(np.float32)
+
+    # — MorphologicalGenes —
+    size_arr        = uni('size')
+    camouflage_arr  = uni('camouflage')
+    defense_arr     = uni('defense')
+    attack_arr      = uni('attack')
+    vision_arr      = uni('vision')
+
+    # — MetabolicGenes —
+    metabolism_rate_arr    = uni('metabolism_rate')
+    nutrient_efficiency_arr= uni('nutrient_efficiency')
+
+    # diet choice with fixed probabilities
+    p = [0.50, 0.20, 0.20, 0.05, 0.05]
+    diet_type_arr = np.random.choice(
+        gene_pool['diet_type'],
+        size=n,
+        p=p
+    ).astype(np.str_)
+
+    # — ReproductionGenes —
+    fertility_rate_arr = uni('fertility_rate')
+    offspring_count_arr = np.random.randint(
+        gene_pool['offspring_count'][0],
+        gene_pool['offspring_count'][1] + 1,
+        size=(n,)
+    ).astype(np.int32)
+    reproduction_type_arr = np.random.choice(
+        gene_pool['reproduction_type'],
+        size=n
+    ).astype(np.str_)
+
+    # — BehavioralGenes —
+    pack_behavior_arr = np.random.choice(
+        gene_pool['pack_behavior'], size=n
+    ).astype(bool)
+    symbiotic_arr     = np.random.choice(
+        gene_pool['symbiotic'],     size=n
+    ).astype(bool)
+
+    # — LocomotionGenes —
+    swim_arr = np.random.choice(
+        gene_pool['swim'], size=n
+    ).astype(bool)
+    walk_arr = np.random.choice(
+        gene_pool['walk'], size=n
+    ).astype(bool)
+    fly_arr  = np.random.choice(
+        gene_pool['fly'],  size=n
+    ).astype(bool)
+
+    # speed & energy
+    speed_arr  = uni('speed')
+    energy_arr = np.random.uniform(10, 30, size=(n,)).astype(np.float32)
 
     return (
         species_arr, size_arr, camouflage_arr, defense_arr, attack_arr,

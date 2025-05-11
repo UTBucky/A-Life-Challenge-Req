@@ -1,5 +1,6 @@
 import numpy as np
 from scipy.spatial import cKDTree
+from scipy.cluster.hierarchy import DisjointSet
 import random
 
 
@@ -43,6 +44,9 @@ class Organisms:
             ('energy',            np.float32),
             ('x_pos',             np.float32),
             ('y_pos',             np.float32),
+                # — Lineage tracking —
+            ('p_id',                  np.int32),
+            ('c_id',                  np.int32),
         ])
     def __init__(self, env: object, O_CLASS = ORGANISM_CLASS):
         """
@@ -51,20 +55,25 @@ class Organisms:
         :param env: 2D Simulation Environment object
         """
 
+        #Organisms and Neighbor ds
         self._organism_dtype = O_CLASS
-
         self._pos_tree = None
         self._organisms = np.zeros((0,), dtype=self._organism_dtype)
+        
+        #Environment
         self._env = env
         self._width = env.get_width()
         self._length = env.get_length()
+        
+        #Genes
         self._mutation_rate = 0.05
-        # TODO: Load genes from json file
         self._gene_pool = None
         
+        # Lineage
         self._ancestry = {}
         self._species_count = {}
-        
+        self._ds = DisjointSet()
+        self._next_id = 0
         # Garbage collection optimization - scratch buffers
         self._dirs = np.array([[1,0],[-1,0],[0,1],[0,-1]], np.float32)
 
@@ -77,6 +86,10 @@ class Organisms:
 
     def get_ancestries(self):
         return self._ancestry
+
+    def get_disjointset(self):
+        groups = list(self._ds.subsets())  
+        return groups
 
     def get_species_count(self):
         return self._species_count
@@ -102,6 +115,16 @@ class Organisms:
         else:
             # no points → no tree
             self._pos_tree = None
+
+    def _generate_ids(self, count: int) -> np.ndarray:
+        """
+        Allocate count new unique IDs in one go and bump the counter.
+        """
+        ids = np.arange(self._next_id,
+                        self._next_id + count,
+                        dtype=np.int64)
+        self._next_id += count
+        return ids
 
     def reproduce(self):
         """
@@ -149,7 +172,6 @@ class Organisms:
         offspring = np.empty((parents.shape[0],), dtype=self._organism_dtype)
 
 
-
         # Create offspring simulation bookkeeping
         offspring['species']           = parents['species']
         offspring['size']              = parents['size']
@@ -175,10 +197,10 @@ class Organisms:
         flip_mask = (np.random.rand(offspring.shape[0]) < 0.01).astype(bool)
         m = flip_mask.sum()
         species_arr = self.random_name_generation(m)
-        old = offspring['species']                        # shape (N,)
-        new = old.copy()                                  # start with all old names
-        new[flip_mask] = species_arr                      # overwrite the mutated slots
-        offspring['species'] = new
+        offspring['species'][flip_mask] = species_arr
+        
+        
+        
         offspring['size'][flip_mask]               = np.random.uniform(
                                                         low=self._gene_pool['size'][0],
                                                         high=self._gene_pool['size'][1],
@@ -280,32 +302,35 @@ class Organisms:
         raw_x = parents['x_pos'] + offset[:, 0]
         raw_y = parents['y_pos'] + offset[:, 1]
 
+        #initialize id based on number that was produced
+        start = self._next_id
+        offspring['c_id'] = np.arange(start, start + offspring.shape[0], dtype=np.int32)
+        offspring['p_id'] = parents['c_id']
+        self._next_id += offspring.shape[0]
+
+        for cid in offspring['c_id']:
+            self._ds.add(int(cid))
+            
+        for p_id, c_id in zip(offspring['p_id'], offspring['c_id']):
+            self._ds.merge(int(p_id), int(c_id))
+
 
         offspring['x_pos'] = np.clip(raw_x, 0, width  - 1)
         offspring['y_pos'] = np.clip(raw_y, 0, length - 1)
 
         # Speciation and lineage tracking
         # Do this after it's declared valid in the environment
-        unique, counts = np.unique(species_arr, return_counts=True)
-        for i in range(unique.shape[0]):
-            species = unique[i]
-            count   = counts[i]
+        gen = self._env.get_generation()
+        
+        species_arr = offspring['species'][flip_mask]
+        c_id_arr    = offspring['c_id'][flip_mask]
+        p_id_arr    = offspring['p_id'][flip_mask]
+
+        for species, c_id, p_id in zip(species_arr, c_id_arr, p_id_arr):
             if species not in self._species_count:
-                self._species_count[species] = count
-                print(f"New species added: {species} ({count})")
-        # # TODO: Possible to enhance this?
-        # # Handles speciation and lineage tracking
-        # for i in range(offspring.shape[0]):
-        #     child = offspring['species'][i]
-        #     parent = parents['species'][i]
-
-        #     if parent == child:
-        #         self._species_count[parent] += 1
-
-        #     else:
-        #         self._species_count[child] = 1
-        #         self._ancestry[child] = self._ancestry[parent].copy()
-        #         self._ancestry[child].append(parent)
+                # store as [c_id, p_id, generation]
+                self._species_count[species] = [c_id, p_id, gen]
+                print(f"New species added: {species} ({gen})")
 
         self._env.add_births(offspring.shape[0])
         self._organisms = np.concatenate((self._organisms, offspring))
@@ -407,7 +432,6 @@ class Organisms:
                 0.05,  # Photo 5%
                 0.05]  # Parasite 5%
             diet_type_arr = np.random.choice(self._gene_pool['diet_type'], size=n, p=p).astype(np.str_)
-
             #
             # — ReproductionGenes —
             fertility_rate_arr = np.random.uniform(
@@ -436,6 +460,7 @@ class Organisms:
                 self._gene_pool['symbiotic'],
                 size=n
             ).astype(np.bool_)
+            #
             # — LocomotionGenes —
             swim_arr = np.random.choice(self._gene_pool['swim'], size=n).astype(np.bool_)
             walk_arr = np.random.choice(self._gene_pool['walk'], size=n).astype(np.bool_)
@@ -526,14 +551,27 @@ class Organisms:
         spawned['fly']                = fly_arr[:valid_count]
         spawned['speed']              = speed_arr[:valid_count]
         spawned['energy']             = energy_arr[:valid_count]
+        
+        
         # positions is int32 → cast to float32 for x_pos/y_pos
         positions_f = positions.astype(np.float32)
         spawned['x_pos']             = positions_f[:, 0]
         spawned['y_pos']             = positions_f[:, 1]
+        
+        
+        start = self._next_id
+        spawned['c_id'] = np.arange(start, start + valid_count, dtype=np.int32)
+        spawned['p_id'] = spawned['c_id']   # each founder is its own parent
+        self._next_id += valid_count
+        
+        #lineage
+        for cid in spawned['c_id']:
+            self._ds.add((int(cid)))
+        
+        
         # --- append to full array and update births ---
         self._organisms = np.concatenate((self._organisms, spawned))
         self._env.add_births(valid_count)
-
         return valid_count
 
     def move(self):
@@ -894,18 +932,16 @@ class Organisms:
 
         # world dimensions
         w, h = self._width, self._length
-        dx = margin * w        # 0.05 * 1000 = 50
-        dy = margin * h
         # positions
         x = orgs['x_pos']
         y = orgs['y_pos']
 
         # mask of who’s too close to any edge
         border_mask = (
-            (x <  margin * dx) |
-            (x > (1-margin) * w - dx) |
-            (y <  margin * dy) |
-            (y > (1-margin) * h - dy)
+            (x <  margin * w) |
+            (x > (1-margin) * w ) |
+            (y <  margin * h) |
+            (y > (1-margin) * h )
         )
 
         if not np.any(border_mask):

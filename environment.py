@@ -66,7 +66,9 @@ class Environment:
     def step(self):
         """
         Steps one generation forward in the simulation.
-        """       
+        """
+        if self._generation % 50 == 0:
+            print(self._organisms.lineage())
         self._organisms.build_spatial_index()
         self._organisms.move()
         self._organisms.resolve_attacks()

@@ -941,3 +941,32 @@ class Organisms:
         self._organisms = survivors
 
         return
+
+    def lineage(self):
+        """
+        Build a dict mapping each parent → list of its children.
+        """
+        c_id_arr = self._organisms['c_id']
+        p_id_arr = self._organisms['p_id']
+        
+        # 1) sort births by parent ID
+        order = np.argsort(p_id_arr)
+        p_sorted = p_id_arr[order]
+        c_sorted = c_id_arr[order]
+        
+        # 2) find where each parent’s block of children starts, and how many
+        parents, start_idxs, counts = np.unique(
+            p_sorted,
+            return_index=True,
+            return_counts=True       # <-- was misspelled `return_coutns`
+        )
+        parents = parents.tolist()
+        start_idxs = start_idxs.tolist()
+        counts = counts.tolist()
+        # 3) build the dict parent → [child, child, …]
+        children = {
+            parent: c_sorted[start : start + cnt].tolist()
+            for parent, start, cnt in zip(parents, start_idxs, counts)
+        }
+        
+        return children

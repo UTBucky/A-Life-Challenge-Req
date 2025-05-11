@@ -123,17 +123,13 @@ class Organisms:
         """
         orgs = self._organisms
         coords        = np.stack((orgs['x_pos'], orgs['y_pos']), axis=1)
-        vision_radii  = orgs['vision']
         tree          = self._pos_tree  # a cKDTree built on coords
-
-        # 1) Find all neighbors within vision (still list of lists)
-        neigh_lists = tree.query_ball_point(coords, vision_radii)
 
         # 2) Vectorized: find each organism’s *distance* to its nearest *other* neighbor
         #    - query k=2: idx 0 is self (dist=0), idx 1 is true nearest neighbor
         dists, idxs = tree.query(coords, k=2)     # dists.shape == (N,2)
         nearest_dist = dists[:, 1]                # shape (N,)
-
+        print(dists, idxs)
         # 3) Build a boolean mask of “safe” organisms
         too_close   = 7.5
         safe_mask   = nearest_dist >= too_close   # True if OK to interact
@@ -184,10 +180,7 @@ class Organisms:
         raw_y = parents['y_pos'] + offset[:, 1]
 
         #initialize id based on number that was produced
-        start = self._next_id
-        offspring['c_id'] = np.arange(start, start + offspring.shape[0], dtype=np.int32)
-        offspring['p_id'] = parents['c_id']
-        self._next_id += offspring.shape[0]
+        self.increment_p_id_and_c_id(offspring,offspring.shape[0],parents)
 
         offspring['x_pos'] = np.clip(raw_x, 0, width  - 1)
         offspring['y_pos'] = np.clip(raw_y, 0, length - 1)
@@ -210,7 +203,7 @@ class Organisms:
         self._organisms = np.concatenate((self._organisms, offspring))
 
     def spawn_initial_organisms(self, number_of_organisms: int,
-                                randomize: bool = True) -> int:
+                                randomize: bool = False) -> int:
         """
         Spawns the initial organisms in the simulation.
         Organism stats can be randomized if desired.
@@ -220,15 +213,13 @@ class Organisms:
         :param randomize: Request to randomize stats of spawned organisms
         :returns: how many organisms were actually placed
         """
-        import numpy as np
-
         # --- get environment info ---
         env_width = self._width
         env_length = self._length
         env_terrain = self._env.get_terrain()
         n = number_of_organisms
 
-        np.str_ = np.str_
+
         if randomize:
             # species label
             species_arr = np.full((n,), "ORG", dtype=np.str_)
@@ -330,30 +321,12 @@ class Organisms:
             ).astype(np.float32)
 
         else:
-            species_arr = np.full((n,), "ORG", dtype=np.str_)
-            size_arr = np.full((n,), 1.0, dtype=np.float32)
-            camouflage_arr = np.zeros((n,), dtype=np.float32)
-            defense_arr = np.zeros((n,), dtype=np.float32)
-            attack_arr = np.zeros((n,), dtype=np.float32)
-            #
-            # or based on env scale
-            vision_arr = np.full((n,), 15, dtype=np.float32)
-            metabolism_rate_arr = np.full((n,), 1.0, dtype=np.float32)
-            nutrient_efficiency_arr = np.full((n,), 1.0, dtype=np.float32)
-            diet_type_arr = np.full((n,), self._gene_pool['diet_type'][0], dtype=np.str_)
-
-            fertility_rate_arr = np.full((n,), 0.1, dtype=np.float32)
-            offspring_count_arr = np.full((n,), 1, dtype=np.int32)
-            reproduction_type_arr = np.full((n,), self._gene_pool['reproduction_type'][0], dtype=np.str_)
-
-            pack_behavior_arr = np.full((n,), False, dtype=np.bool_)
-            symbiotic_arr = np.full((n,), False, dtype=np.bool_)
-
-            swim_arr = np.full((n,), False, dtype=np.bool_)
-            walk_arr = np.full((n,), True,  dtype=np.bool_)
-            fly_arr = np.full((n,), False, dtype=np.bool_)
-            speed_arr = np.full((n,), 1.0,  dtype=np.float32)
-            energy_arr = np.full((n,), 20, dtype=np.float32)
+            species_arr, size_arr, camouflage_arr, defense_arr, attack_arr, \
+            vision_arr, metabolism_rate_arr, nutrient_efficiency_arr, \
+            diet_type_arr, fertility_rate_arr, offspring_count_arr, \
+            reproduction_type_arr, pack_behavior_arr, symbiotic_arr, \
+            swim_arr, walk_arr, fly_arr, speed_arr, energy_arr = \
+            initialize_default_traits(n, self._gene_pool)
 
         # --- pick random positions and filter to valid land cells ---
         positions = np.random.randint(0, env_width, size=(n, 2)).astype(np.int32)
@@ -409,18 +382,34 @@ class Organisms:
         spawned['x_pos']             = positions_f[:, 0]
         spawned['y_pos']             = positions_f[:, 1]
         
-        
-        start = self._next_id
-        spawned['c_id'] = np.arange(start, start + valid_count, dtype=np.int32)
-        spawned['p_id'] = spawned['c_id']   # each founder is its own parent
-        self._next_id += valid_count
-
-        
+        # DO NOT INITIALIZE THIS WITHIN SIGNITURE OF BELOW DO IT HERE
+        empty = np.empty((0), dtype=self._organism_dtype)
+        self.increment_p_id_and_c_id(spawned, valid_count, empty)
+    
         # --- append to full array and update births ---
         self._organisms = np.concatenate((self._organisms, spawned))
         self._env.add_births(valid_count)
         return valid_count
 
+    def increment_p_id_and_c_id(self, 
+        c_org_arr:np.ndarray,  
+        num_spawned:int,
+        p_org_arr:np.ndarray):
+        """
+        Increment id's for reproduction and spawning founders.
+        May be used for lineage later.
+        """
+        if p_org_arr['x_pos'].any():
+            start = self._next_id
+            c_org_arr['c_id'] = np.arange(start, start + num_spawned, dtype=np.int32)
+            c_org_arr['p_id'] = p_org_arr['c_id']
+            self._next_id += num_spawned
+        else:
+            start = self._next_id
+            c_org_arr['c_id'] = np.arange(start, start + num_spawned, dtype=np.int32)
+            c_org_arr['p_id'] = c_org_arr['c_id']
+            self._next_id += num_spawned
+    
     def apply_terrain_penalties(self):
         """"""
         terrain = self._env.get_terrain()

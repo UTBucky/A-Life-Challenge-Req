@@ -1,4 +1,6 @@
 import numpy as np
+from typing import Tuple, Dict
+
 
 def copy_valid_count( 
     spawned: np.ndarray, 
@@ -168,3 +170,60 @@ def mutate_offspring(
                                                     high=gene_pool['speed'][1],
                                                     size=m
                                                 ).astype(np.float32)
+
+
+def initialize_default_traits(
+    n: int,
+    gene_pool: Dict[str, list]
+) -> Tuple[
+    np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray,
+    np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray,
+    np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray,
+    np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray
+]:
+    """
+    Create default (non-randomized) trait arrays for n organisms,
+    using gene_pool for any categorical defaults.
+    Returns in order:
+        species_arr, size_arr, camouflage_arr, defense_arr, attack_arr,
+        vision_arr, metabolism_rate_arr, nutrient_efficiency_arr,
+        diet_type_arr, fertility_rate_arr, offspring_count_arr,
+        reproduction_type_arr, pack_behavior_arr, symbiotic_arr,
+        swim_arr, walk_arr, fly_arr, speed_arr, energy_arr
+    """
+    species_arr            = np.full((n,), "ORG", dtype=np.str_)
+    size_arr               = np.full((n,), 1.0, dtype=np.float32)
+    camouflage_arr         = np.zeros((n,),   dtype=np.float32)
+    defense_arr            = np.zeros((n,),   dtype=np.float32)
+    attack_arr             = np.zeros((n,),   dtype=np.float32)
+    # or based on environment scale
+    vision_arr             = np.full((n,), 15,  dtype=np.float32)
+    metabolism_rate_arr    = np.full((n,), 1.0, dtype=np.float32)
+    nutrient_efficiency_arr= np.full((n,), 1.0, dtype=np.float32)
+    diet_type_arr          = np.full(
+                                (n,),
+                                gene_pool['diet_type'][0],
+                                dtype=np.str_
+                            )
+    fertility_rate_arr     = np.full((n,), 0.1, dtype=np.float32)
+    offspring_count_arr    = np.full((n,), 1,   dtype=np.int32)
+    reproduction_type_arr  = np.full(
+                                (n,),
+                                gene_pool['reproduction_type'][0],
+                                dtype=np.str_
+                            )
+    pack_behavior_arr      = np.full((n,), False, dtype=np.bool_)
+    symbiotic_arr          = np.full((n,), False, dtype=np.bool_)
+    swim_arr               = np.full((n,), False, dtype=np.bool_)
+    walk_arr               = np.full((n,), True,  dtype=np.bool_)
+    fly_arr                = np.full((n,), False, dtype=np.bool_)
+    speed_arr              = np.full((n,), 1.0, dtype=np.float32)
+    energy_arr             = np.full((n,), 20,  dtype=np.float32)
+
+    return (
+        species_arr, size_arr, camouflage_arr, defense_arr, attack_arr,
+        vision_arr, metabolism_rate_arr, nutrient_efficiency_arr,
+        diet_type_arr, fertility_rate_arr, offspring_count_arr,
+        reproduction_type_arr, pack_behavior_arr, symbiotic_arr,
+        swim_arr, walk_arr, fly_arr, speed_arr, energy_arr
+    )

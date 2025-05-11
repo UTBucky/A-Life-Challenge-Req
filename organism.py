@@ -1,8 +1,6 @@
 import numpy as np
 from scipy.spatial import cKDTree
-from scipy.cluster.hierarchy import DisjointSet
 import random
-from collections import defaultdict
 
 class Organisms:
     """
@@ -70,9 +68,7 @@ class Organisms:
         self._gene_pool = None
         
         # Lineage
-        self._ancestry = {}
         self._species_count = {}
-        self._ds = DisjointSet()
         self._next_id = 0
         # Garbage collection optimization - scratch buffers
         self._dirs = np.array([[1,0],[-1,0],[0,1],[0,-1]], np.float32)
@@ -83,12 +79,6 @@ class Organisms:
     # Get methods
     def get_organisms(self):
         return self._organisms
-
-    def get_ancestries(self):
-        return self._ancestry
-
-    def get_disjointset(self):
-        return self._ds
 
     def get_species_count(self):
         return self._species_count
@@ -306,13 +296,6 @@ class Organisms:
         offspring['c_id'] = np.arange(start, start + offspring.shape[0], dtype=np.int32)
         offspring['p_id'] = parents['c_id']
         self._next_id += offspring.shape[0]
-
-        for cid in offspring['c_id']:
-            self._ds.add(int(cid))
-            
-        for p_id, c_id in zip(offspring['p_id'], offspring['c_id']):
-            self._ds.merge(int(p_id), int(c_id))
-
 
         offspring['x_pos'] = np.clip(raw_x, 0, width  - 1)
         offspring['y_pos'] = np.clip(raw_y, 0, length - 1)
@@ -562,11 +545,7 @@ class Organisms:
         spawned['c_id'] = np.arange(start, start + valid_count, dtype=np.int32)
         spawned['p_id'] = spawned['c_id']   # each founder is its own parent
         self._next_id += valid_count
-        
-        #lineage
-        for cid in spawned['c_id']:
-            self._ds.add((int(cid)))
-        
+
         
         # --- append to full array and update births ---
         self._organisms = np.concatenate((self._organisms, spawned))

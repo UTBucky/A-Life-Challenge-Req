@@ -20,10 +20,6 @@ class DummyOrgs:
         self.organisms = np.zeros(1, dtype=[('energy', np.float32)])
         self.organisms['energy'][0] = 1.0
 
-    def lineage(self):
-        self.calls.append('lineage')
-        return 'dummy_lineage'
-
     def build_spatial_index(self):
         self.calls.append('build_spatial_index')
 
@@ -41,6 +37,9 @@ class DummyOrgs:
 
     def remove_dead(self):
         self.calls.append('remove_dead')
+        
+    def build_phylogenetic_tree(self):
+        pass
 
     def get_organisms(self):
         # return the same array so that in‐place energy updates persist
@@ -105,7 +104,6 @@ def test_step_sequence_and_generation_increment(capsys):
     env.step()
     # first 7 calls should include lineage + all six methods
     assert dummy.calls[:7] == [
-        'lineage',
         'build_spatial_index',
         'move',
         'resolve_attacks',
@@ -118,17 +116,8 @@ def test_step_sequence_and_generation_increment(capsys):
     assert pytest.approx(remaining, rel=1e-6) == 0.99
     # generation incremented
     assert env.get_generation() == 1
-
-    # capture stdout to verify lineage was printed
-    # (lineage() returns a string, printed by Environment.step)
-    captured = capsys.readouterr()
-    assert "dummy_lineage" in captured.out
-
-    # next step: generation=1 -> 1%50!=0 -> no lineage print
     dummy.calls.clear()
     env.step()
-    assert 'lineage' not in dummy.calls
-    # generation increments again
     assert env.get_generation() == 2
 
 

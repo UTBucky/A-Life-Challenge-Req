@@ -75,7 +75,7 @@ class Environment:
         """
         Steps one generation forward in the simulation.
         """
-        if self._generation % 50 == 0:
+        if self._generation % 50 == 0 and self._generation > 0:
             tree = Phylo.read(StringIO(dict_to_newick(self._organisms.build_phylogenetic_tree())), "newick")
             fig, ax = plt.subplots(figsize=(12, 8))
             Phylo.draw(tree, axes=ax, do_show=False)

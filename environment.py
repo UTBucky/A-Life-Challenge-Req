@@ -16,6 +16,8 @@ class Environment:
         :param width: Width of the environment
         :param length: Length of the environment
         """
+        if width <= 0 or length <= 0:
+            raise ValueError("Width and length must be greater than zero.")
         self._width = width
         self._length = length
         self._terrain = np.zeros((length, width), dtype=np.float32)
@@ -116,7 +118,6 @@ def generate_fractal_terrain(
     noise_grid = np.empty((max_gh, max_gw), dtype=np.float32)
     # Layer buffer used for upsampled noise contribution
     layer = np.empty_like(terrain, dtype=np.float32)
-    
     # Buffers for gradient-based erosion calculations
     grad_x = np.empty_like(terrain)
     grad_y = np.empty_like(terrain)
@@ -127,20 +128,6 @@ def generate_fractal_terrain(
     actual_seed = seed if seed is not None else int(rng.integers(0, 1_000_000))
     print("[Terrain Gen] Seed used:", actual_seed)
 
-    try:
-        
-        res = base_res * (2 ** num_octaves)
-        gh = height // res + 2
-        gw = width  // res + 2
-        # Ensure the noise grid and zoom operations are properly bounded
-        zoom_factors = (height / gh, width / gw)
-        if any(z <= 0 for z in zoom_factors):
-            raise ValueError("Zoom factors must be greater than zero.")
-        zoom(noise_grid[:gh, :gw], zoom_factors, order=1, output=layer)
-
-    except Exception as e:
-        print(f"[Error in Terrain Generation] {e}")
-        raise RuntimeError("Terrain generation failed due to memory access issues.")
 
     # --- FRACTAL PERLIN NOISE GENERATION ---
     for i in range(num_octaves):

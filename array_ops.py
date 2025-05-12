@@ -123,7 +123,7 @@ def mutate_offspring(
     offspring['diet_type'][flip_mask]          = np.random.choice(
                                                     gene_pool['diet_type'],
                                                     size=m
-                                                ).astype(np.str_)
+                                                ).astype('U15')
 
     offspring['fertility_rate'][flip_mask]     = np.random.uniform(
                                                     low=gene_pool['fertility_rate'][0],
@@ -140,7 +140,7 @@ def mutate_offspring(
     offspring['reproduction_type'][flip_mask]  = np.random.choice(
                                                     gene_pool['reproduction_type'],
                                                     size=m
-                                                ).astype(np.str_)
+                                                ).astype('U15')
 
     offspring['pack_behavior'][flip_mask]      = np.random.choice(
                                                     gene_pool['pack_behavior'],
@@ -193,7 +193,10 @@ def initialize_default_traits(
         reproduction_type_arr, pack_behavior_arr, symbiotic_arr,
         swim_arr, walk_arr, fly_arr, speed_arr, energy_arr
     """
-    species_arr            = np.full((n,), "ORG", dtype=np.str_)
+    if n <= 0:
+        raise ValueError("Number of traits 'n' must be greater than 0.")
+
+    species_arr            = np.full((n,), "ORG", dtype='U15')
     size_arr               = np.full((n,), 1.0, dtype=np.float32)
     camouflage_arr         = np.zeros((n,),   dtype=np.float32)
     defense_arr            = np.zeros((n,),   dtype=np.float32)
@@ -205,14 +208,14 @@ def initialize_default_traits(
     diet_type_arr          = np.full(
                                 (n,),
                                 gene_pool['diet_type'][0],
-                                dtype=np.str_
+                                dtype='U15'
                             )
     fertility_rate_arr     = np.full((n,), 0.1, dtype=np.float32)
     offspring_count_arr    = np.full((n,), 1,   dtype=np.int32)
     reproduction_type_arr  = np.full(
                                 (n,),
                                 gene_pool['reproduction_type'][0],
-                                dtype=np.str_
+                                dtype='U15'
                             )
     pack_behavior_arr      = np.full((n,), False, dtype=np.bool_)
     symbiotic_arr          = np.full((n,), False, dtype=np.bool_)
@@ -254,8 +257,11 @@ def initialize_random_traits(
       reproduction_type_arr, pack_behavior_arr, symbiotic_arr,
       swim_arr, walk_arr, fly_arr, speed_arr, energy_arr
     """
+    if n <= 0:
+        raise ValueError("Number of traits 'n' must be greater than 0.")
+
     # species label
-    species_arr = np.full((n,), "ORG", dtype=np.str_)
+    species_arr = np.full((n,), "ORG", dtype='U15')
 
     # helper for uniform floats
     def uni(key):
@@ -279,7 +285,7 @@ def initialize_random_traits(
         gene_pool['diet_type'],
         size=n,
         p=p
-    ).astype(np.str_)
+    ).astype('U15')
 
     # — ReproductionGenes —
     fertility_rate_arr = uni('fertility_rate')
@@ -291,7 +297,7 @@ def initialize_random_traits(
     reproduction_type_arr = np.random.choice(
         gene_pool['reproduction_type'],
         size=n
-    ).astype(np.str_)
+    ).astype('U15')
 
     # — BehavioralGenes —
     pack_behavior_arr = np.random.choice(
@@ -360,6 +366,10 @@ def calculate_valid_founder_terrain(
     valid_count : int
         Total number of valid positions.
     """
+    if n <= 0:
+        raise ValueError("Number of traits 'n' must be greater than 0.")
+    if env_width < 200:
+        raise ValueError("Environment width must be at least 200.")
     # 1) Sample random candidate positions
     positions = np.random.randint(0, env_width, size=(n, 2)).astype(np.int32)
 

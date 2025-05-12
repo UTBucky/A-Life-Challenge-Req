@@ -64,6 +64,7 @@ def test_save_and_load_simulation_memory():
     assert data['env'].name == env.name
     assert data['timestep'] == timestep
 
+
 def test_save_and_load_simulation_file():
     """Tests that save and load correctly restore variable values"""
     button = Button()
@@ -77,6 +78,7 @@ def test_save_and_load_simulation_file():
 
     assert loaded_env.name == env.name
     assert loaded_timestep == timestep
+
 
 def test_save_and_load_viewer_env_after_reset():
     """Initializes a viewer with environment attribute. Saves initial state then

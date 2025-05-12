@@ -1,8 +1,11 @@
 import json
+import os
 import pprint
 
+script_dir = os.path.dirname(os.path.abspath(__file__))
+file_path = os.path.join(script_dir, 'gene_settings.json')
 
-def load_genes_from_file(filename="gene_settings.json") -> dict:
+def load_genes_from_file(filename=file_path) -> dict:
     """
     Loads gene ranges from a JSON file and returns a dictionary
     mapping gene names to (min, max) tuples for continuous values

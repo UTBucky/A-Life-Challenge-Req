@@ -3,10 +3,11 @@ import numpy as np
 
 class OrgNode:
     
-    def __init__(self, p_id, c_id, gen, species):
+    def __init__(self, p_id, c_id, heir_gen, birth_gen, species):
         self._parent = p_id
         self._child  = c_id
-        self._gen    = gen
+        self._gen    = heir_gen
+        self._b_gen  = birth_gen
         self._species= species
     
     @property
@@ -20,6 +21,10 @@ class OrgNode:
     @property
     def heirarchical_generation(self):
         self._gen
+
+    @property
+    def birth_generation(self):
+        self._b_gen
         
     @property
     def species(self):
@@ -51,11 +56,12 @@ class LineageTracker:
             c_id = int(child_rec['c_id'])
             p_spec = parent_rec['species']
             c_spec = child_rec['species']
-            c_gen  = int(child_rec['gen'])
+            heir_gen  = int(child_rec['gen'])
+            birth_gen  = gen
 
 
             # Create & store the new node
-            node = OrgNode(p_id, c_id, c_gen, p_spec)
+            node = OrgNode(p_id, c_id, heir_gen, birth_gen ,p_spec)
             self._nodes[c_id] = node
 
             

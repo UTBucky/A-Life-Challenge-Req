@@ -1,7 +1,7 @@
 import numpy as np
 from scipy.spatial import cKDTree
 import random
-from refactor import *
+from array_ops import *
 
 class Organisms:
     """
@@ -129,7 +129,6 @@ class Organisms:
         #    - query k=2: idx 0 is self (dist=0), idx 1 is true nearest neighbor
         dists, idxs = tree.query(coords, k=2)     # dists.shape == (N,2)
         nearest_dist = dists[:, 1]                # shape (N,)
-        print(dists, idxs)
         # 3) Build a boolean mask of “safe” organisms
         too_close   = 7.5
         safe_mask   = nearest_dist >= too_close   # True if OK to interact
@@ -221,68 +220,126 @@ class Organisms:
 
 
         if randomize:
-            species_arr, size_arr, camouflage_arr, defense_arr, attack_arr, \
-            vision_arr, metabolism_rate_arr, nutrient_efficiency_arr, \
-            diet_type_arr, fertility_rate_arr, offspring_count_arr, \
-            reproduction_type_arr, pack_behavior_arr, symbiotic_arr, \
-            swim_arr, walk_arr, fly_arr, speed_arr, energy_arr = \
-            initialize_random_traits(n, self._gene_pool)
+            (
+                # — Morphological traits —
+                species_arr,
+                size_arr,
+                camouflage_arr,
+                defense_arr,
+                attack_arr,
+
+                # — Sensory —
+                vision_arr,
+
+                # — Metabolic parameters —
+                metabolism_rate_arr,
+                nutrient_efficiency_arr,
+                diet_type_arr,
+
+                # — Reproduction settings —
+                fertility_rate_arr,
+                offspring_count_arr,
+                reproduction_type_arr,
+
+                # — Social behaviors —
+                pack_behavior_arr,
+                symbiotic_arr,
+
+                # — Locomotion capabilities —
+                swim_arr,
+                walk_arr,
+                fly_arr,
+                speed_arr,
+
+                # — Energy state —
+                energy_arr,
+            ) = initialize_random_traits(n, self._gene_pool)
         else:
-            species_arr, size_arr, camouflage_arr, defense_arr, attack_arr, \
-            vision_arr, metabolism_rate_arr, nutrient_efficiency_arr, \
-            diet_type_arr, fertility_rate_arr, offspring_count_arr, \
-            reproduction_type_arr, pack_behavior_arr, symbiotic_arr, \
-            swim_arr, walk_arr, fly_arr, speed_arr, energy_arr = \
-            initialize_default_traits(n, self._gene_pool)
+            (
+                # — Morphological traits —
+                species_arr,
+                size_arr,
+                camouflage_arr,
+                defense_arr,
+                attack_arr,
 
-        # --- pick random positions and filter to valid land cells ---
-        positions = np.random.randint(0, env_width, size=(n, 2)).astype(np.int32)
+                # — Sensory —
+                vision_arr,
 
-        # 2) Lookup terrain at each candidate
-        ix = positions[:, 0]
-        iy = positions[:, 1]
-        terrain_values = env_terrain[iy, ix]
+                # — Metabolic parameters —
+                metabolism_rate_arr,
+                nutrient_efficiency_arr,
+                diet_type_arr,
 
-        # 3) Build locomotion-only masks
-        swim_only = swim_arr & ~walk_arr & ~fly_arr
-        walk_only = walk_arr & ~swim_arr & ~fly_arr
-        # flyers: just fly_arr
-        
-        
-        # 4) Filter out invalid positions
-        valid_fly   = positions[ fly_arr ]
-        valid_swim  = positions[ swim_only &  (terrain_values <  0) ]
-        valid_walk  = positions[ walk_only & (terrain_values >= 0) ]
+                # — Reproduction settings —
+                fertility_rate_arr,
+                offspring_count_arr,
+                reproduction_type_arr,
 
-        # 5) Concatenate all valid positions, count them
-        positions = np.concatenate((valid_fly, valid_swim, valid_walk), axis=0)
-        valid_count = positions.shape[0]
+                # — Social behaviors —
+                pack_behavior_arr,
+                symbiotic_arr,
 
-        # --- truncate all arrays to the number of valid spots ---
-        # --- pack into structured array ---
+                # — Locomotion capabilities —
+                swim_arr,
+                walk_arr,
+                fly_arr,
+                speed_arr,
+
+                # — Energy state —
+                energy_arr,
+            ) = initialize_default_traits(n, self._gene_pool)
+
+        # — Pick random positions and filter to valid terrain cells —
+        # — Truncate all related arrays to the number of valid spots —
+        positions, valid_count = calculate_valid_founder_terrain(
+            env_terrain,
+            swim_arr,
+            walk_arr,
+            fly_arr,
+            env_width,
+            n,
+        )
+
+
+        # — Pack truncated data into the structured offspring array —
+        # e.g., offspring = np.empty(valid_count, dtype=self._organism_dtype)
         spawned = np.zeros(valid_count, dtype=self._organism_dtype)
-        copy_valid_count(spawned, 
+        copy_valid_count(
+            spawned,
             valid_count,
+
+            # morphological traits
             species_arr,
             size_arr,
             camouflage_arr,
             defense_arr,
             attack_arr,
             vision_arr,
+
+            # metabolic characteristics
             metabolism_rate_arr,
             nutrient_efficiency_arr,
             diet_type_arr,
+
+            # reproduction parameters
             fertility_rate_arr,
             offspring_count_arr,
             reproduction_type_arr,
+
+            # behaviors
             pack_behavior_arr,
             symbiotic_arr,
+
+            # movement capabilities
             swim_arr,
             walk_arr,
             fly_arr,
             speed_arr,
-            energy_arr,)
-        
+
+            # state
+            energy_arr,
+        )
         # positions is int32 → cast to float32 for x_pos/y_pos
         positions_f = positions.astype(np.float32)
         spawned['x_pos']             = positions_f[:, 0]
@@ -305,17 +362,18 @@ class Organisms:
         Increment id's for reproduction and spawning founders.
         May be used for lineage later.
         """
+        #TODO: Consider not passing the whole org array in but only the id fields
+        start = self._next_id
+        c_org_arr['c_id'] = np.arange(start, start + num_spawned, dtype=np.int32)
+        self._next_id += num_spawned
+        #
+        # Founders are their own parents
+        #
         if p_org_arr['x_pos'].any():
-            start = self._next_id
-            c_org_arr['c_id'] = np.arange(start, start + num_spawned, dtype=np.int32)
             c_org_arr['p_id'] = p_org_arr['c_id']
-            self._next_id += num_spawned
         else:
-            start = self._next_id
-            c_org_arr['c_id'] = np.arange(start, start + num_spawned, dtype=np.int32)
             c_org_arr['p_id'] = c_org_arr['c_id']
-            self._next_id += num_spawned
-    
+
     def apply_terrain_penalties(self):
         """"""
         terrain = self._env.get_terrain()
@@ -335,7 +393,47 @@ class Organisms:
         # subtract 5 energy per violation (they die via remove_dead when energy ≤ 0)
         orgs['energy'][penalty] -= 0.1 * orgs['metabolism_rate'][penalty]
 
-    
+    def compute_terrain_avoidance(self, coords: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+        """
+        Given an (N,2) array of positions, compute per‐organism
+        avoidance vectors for water and land based on the 4‐neighborhood.
+        
+        Returns:
+            avoid_land  : np.ndarray of shape (N,2)
+            avoid_water : np.ndarray of shape (N,2)
+        """
+        N = coords.shape[0]
+        terrain = self._env.get_terrain()
+        width, length = self._width, self._length
+        dirs = self._dirs  # shape (4,2)
+
+        # generate neighbor samples: shape (N,4,2)
+        samples = coords[:, None, :] + dirs[None, :, :]
+
+        # map to integer grid indices
+        ix = samples[..., 0].astype(int)
+        iy = samples[..., 1].astype(int)
+
+        # mask out‐of‐bounds
+        valid = (
+            (ix >= 0) & (ix < width) &
+            (iy >= 0) & (iy < length)
+        )  # shape (N,4)
+
+        # look up terrain, fill invalid with nan
+        tiles = np.full((N, 4), np.nan, dtype=np.float32)
+        tiles[valid] = terrain[iy[valid], ix[valid]]
+
+        # water‐avoidance: push opposite dirs wherever terrain<0
+        mask_water = tiles < 0
+        avoid_water = - (dirs[None, :, :] * mask_water[..., None]).sum(axis=1)
+
+        # land‐avoidance: push opposite dirs wherever terrain>=0
+        mask_land = tiles >= 0
+        avoid_land = - (dirs[None, :, :] * mask_land[..., None]).sum(axis=1)
+
+        return avoid_land, avoid_water
+
     def move(self):
         orgs = self._organisms
         N = orgs.shape[0]
@@ -349,36 +447,9 @@ class Organisms:
         coords = np.stack((orgs['x_pos'], orgs['y_pos']), axis=1)
         
         vision_radii = orgs['vision']
-        neigh_lists = self._pos_tree.query_ball_point(coords, vision_radii)
+        neigh_lists = self._pos_tree.query_ball_point(coords, vision_radii, workers=-1)
 
-
-        # precompute once per tick, outside the per‐organism loop:
-        # Wipes buffer for movement
-        dirs = self._dirs
-
-        # coords: (N,2) array of current positions
-        samples = coords[:, None, :] + dirs[None, :, :]  # shape (N,4,2)
-
-        # floor to grid‐indices
-        ix = samples[..., 0].astype(int)  # (N,4)
-        iy = samples[..., 1].astype(int)  # (N,4)
-
-        # mask out‐of‐bounds
-        valid = (
-            (ix >= 0) & (ix < width) &
-            (iy >= 0) & (iy < length)
-        )  # (N,4)
-
-        # lookup terrain values, fill invalid with a safe default
-        tiles = np.full((N, 4), np.nan, dtype=np.float32)
-        tiles[valid] = terrain[iy[valid], ix[valid]]
-
-        # for water-avoidance:
-        mask_water = tiles < 0     # (N,4)
-        avoid_water = - (dirs[None, :, :] * mask_water[..., None]).sum(axis=1)
-        # for land-avoidance:
-        mask_land = tiles >= 0     # (N,4)
-        avoid_land = - (dirs[None, :, :] * mask_land[..., None]).sum(axis=1)
+        avoid_land, avoid_water = self.compute_terrain_avoidance(coords)
 
         # —––––––– grab items once, outside of any per-organism loop –––––––—
         diet_type = orgs['diet_type']
@@ -392,7 +463,7 @@ class Organisms:
         walk_flag = orgs['walk']
         speed = orgs['speed']
 
-        def _compute(i, pos, neighs):
+        def _compute(i, pos, neighs, width, length):
             # pull out “my” values once
             my = orgs[i]
             my_diet = my['diet_type']
@@ -482,9 +553,6 @@ class Organisms:
                 new = pos + step
                 new[0] = np.clip(new[0], 0, width - 1)
                 new[1] = np.clip(new[1], 0, length - 1)
-                dist = np.linalg.norm(new - pos)
-                # use the per‐organism metabolism_rate
-                my['energy'] -= dist * 0.01* my['metabolism_rate']
                 return new
 
             # — social steering (non-pack) —
@@ -532,15 +600,12 @@ class Organisms:
             new = pos + step
             new[0] = np.clip(new[0], 0, width - 1)
             new[1] = np.clip(new[1], 0, length - 1)
-            dist = np.linalg.norm(new - pos)
-            my['energy'] -= dist * 0.01 * my['metabolism_rate']
-
             return new
         old_coords = coords
         # map across all organisms
 
         new_pos = np.array([
-            _compute(i, coords[i], neigh_lists[i])
+            _compute(i, coords[i], neigh_lists[i], width, length)
             for i in range(N)
         ], dtype=np.float32)
 
@@ -553,7 +618,6 @@ class Organisms:
         orgs['energy'][non_photo] -= move_costs
 
         self.build_spatial_index()
-        
 
     def resolve_attacks(self):
         """

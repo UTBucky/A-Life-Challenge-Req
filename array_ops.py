@@ -323,3 +323,62 @@ def initialize_random_traits(
         reproduction_type_arr, pack_behavior_arr, symbiotic_arr,
         swim_arr, walk_arr, fly_arr, speed_arr, energy_arr
     )
+
+def calculate_valid_founder_terrain(
+    env_terrain: np.ndarray,
+    swim_arr: np.ndarray,
+    walk_arr: np.ndarray,
+    fly_arr: np.ndarray,
+    env_width: int,
+    n: int
+) -> Tuple[np.ndarray, int]:
+    """
+    Generate n random candidate positions in a square world of width `env_width`,
+    then filter them by locomotion capabilities against the terrain.
+
+    Parameters:
+    -----------
+    env_terrain : np.ndarray
+        2D array of shape (env_height, env_width) giving terrain heights.
+        Negative values = water, non-negative = land.
+    swim_arr : np.ndarray of bool
+        Boolean mask of length n; True if the organism can swim.
+    walk_arr : np.ndarray of bool
+        Boolean mask of length n; True if the organism can walk.
+    fly_arr : np.ndarray of bool
+        Boolean mask of length n; True if the organism can fly.
+    env_width : int
+        Width (and height) of the square environment.
+    n : int
+        Number of candidate positions to sample.
+
+    Returns:
+    --------
+    positions : np.ndarray of shape (valid_count, 2)
+        Concatenated array of valid [x, y] positions for each locomotion type.
+    valid_count : int
+        Total number of valid positions.
+    """
+    # 1) Sample random candidate positions
+    positions = np.random.randint(0, env_width, size=(n, 2)).astype(np.int32)
+
+    # 2) Lookup terrain at each candidate
+    ix = positions[:, 0]
+    iy = positions[:, 1]
+    terrain_values = env_terrain[iy, ix]
+
+    # 3) Build locomotion‐only masks
+    swim_only = swim_arr & ~walk_arr & ~fly_arr
+    walk_only = walk_arr & ~swim_arr & ~fly_arr
+    # fly_arr itself indicates flyers
+
+    # 4) Filter out invalid positions by locomotion & terrain
+    valid_fly  = positions[fly_arr]
+    valid_swim = positions[swim_only & (terrain_values <  0)]
+    valid_walk = positions[walk_only & (terrain_values >= 0)]
+
+    # 5) Concatenate all valid positions and count them
+    positions = np.concatenate((valid_fly, valid_swim, valid_walk), axis=0)
+    valid_count = positions.shape[0]
+
+    return positions, valid_count

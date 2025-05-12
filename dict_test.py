@@ -8,6 +8,22 @@ class OrgNode:
         self._child  = c_id
         self._gen    = gen
         self._species= species
+    
+    @property
+    def c_id(self):
+        return self._child
+    
+    @property
+    def p_id(self):
+        return self._parent
+    
+    @property
+    def heirarchical_generation(self):
+        self._gen
+        
+    @property
+    def species(self):
+        self._species
 
 class LineageTracker:
     
@@ -31,10 +47,36 @@ class LineageTracker:
         c_array: np.ndarray, 
         gen: int):
         for parent_rec, child_rec in zip(p_array, c_array):
-            p_id, c_id = parent_rec['c_id'], child_rec['c_id']
-            p_species, c_species = parent_rec['species'], child_rec['species']
-            # 1) Create child node
-            child_node = OrgNode(p_id, c_id, child_rec['gen'], c_species)
-            self._nodes[c_id] = child_node
-            # 2) Register child under its parent
+            p_id = int(parent_rec['c_id'])
+            c_id = int(child_rec['c_id'])
+            p_spec = parent_rec['species']
+            c_spec = child_rec['species']
+            c_gen  = int(child_rec['gen'])
+
+
+            # Create & store the new node
+            node = OrgNode(p_id, c_id, c_gen, p_spec)
+            self._nodes[c_id] = node
+
+            
+            # Link parent → child
             self._children.setdefault(p_id, []).append(c_id)
+            
+            
+            # If we’ve never seen this child as anyone’s child before, it might be a founder:
+            if c_id not in self._nodes:
+                self._global_roots.add(c_id)
+
+
+            # If we've never seen this organism's parent before then the parent is a founder
+            if p_id not in self._nodes and p_id not in self._global_roots:
+                self._global_roots.add(p_id)
+
+
+            # If the organism is not a founder then we found its parent
+            self._global_roots.discard(c_id)
+
+
+            # If the species change, we mark a new taxon root
+            if c_spec != p_spec:
+                self._species_roots.setdefault(c_spec,set()).add(c_id)

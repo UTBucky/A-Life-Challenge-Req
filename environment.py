@@ -101,6 +101,9 @@ def generate_fractal_terrain(
     outright copy code snippets as it is in a different language
     Generative AI was used in the process of development and commenting
     """
+    if width <= 0 or height <= 0:
+        raise ValueError("Width and height must be greater than zero.")
+
     # Allocate main terrain array, initialized to zero elevation
     terrain = np.zeros((height, width), dtype=np.float32)
     # Create a damping mask to progressively limit slope contributions
@@ -123,6 +126,21 @@ def generate_fractal_terrain(
     rng = np.random.default_rng(seed)
     actual_seed = seed if seed is not None else int(rng.integers(0, 1_000_000))
     print("[Terrain Gen] Seed used:", actual_seed)
+
+    try:
+        
+        res = base_res * (2 ** num_octaves)
+        gh = height // res + 2
+        gw = width  // res + 2
+        # Ensure the noise grid and zoom operations are properly bounded
+        zoom_factors = (height / gh, width / gw)
+        if any(z <= 0 for z in zoom_factors):
+            raise ValueError("Zoom factors must be greater than zero.")
+        zoom(noise_grid[:gh, :gw], zoom_factors, order=1, output=layer)
+
+    except Exception as e:
+        print(f"[Error in Terrain Generation] {e}")
+        raise RuntimeError("Terrain generation failed due to memory access issues.")
 
     # --- FRACTAL PERLIN NOISE GENERATION ---
     for i in range(num_octaves):

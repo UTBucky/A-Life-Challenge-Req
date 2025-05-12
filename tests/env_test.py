@@ -65,10 +65,13 @@ def test_organism_death(basic_env):
 
 
 def test_generate_terrain():
-    terrain = generate_fractal_terrain(100, 100)
-    assert terrain.shape == (100, 100)
-    assert np.all((terrain >= -1.0) & (terrain <= 1.0))
-
+    try:
+        terrain = generate_fractal_terrain(100, 100)
+        assert terrain.shape == (100, 100)
+        assert np.all((terrain >= -1.0) & (terrain <= 1.0))
+    except Exception as e:
+        print(f"[Test Error] generate_fractal_terrain failed: {e}")
+        pytest.fail(f"generate_fractal_terrain crashed with error: {e}")
 
 def test_environment_initialization(basic_env):
     assert basic_env.get_width() == 100
@@ -105,11 +108,13 @@ def test_environment_step_increases_generation(basic_env):
 
 
 def test_generate_fractal_terrain_edge_cases():
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="Width and height must be greater than zero."):
         generate_fractal_terrain(-1, 100)
-    with pytest.raises(ValueError):
+
+    with pytest.raises(ValueError, match="Width and height must be greater than zero."):
         generate_fractal_terrain(100, -1)
-    with pytest.raises(ValueError, match="Cannot generate terrain with zero dimensions"):
+
+    with pytest.raises(ValueError, match="Width and height must be greater than zero."):
         generate_fractal_terrain(0, 0)
 
 

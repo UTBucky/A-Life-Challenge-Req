@@ -11,6 +11,7 @@ class DummyViewer:
         self.window_size = window_size
         self.timestep = 0
 
+
 # Dummy environment class
 class DummyEnv:
     def __init__(self, name):
@@ -46,6 +47,7 @@ class DummyOrgs:
 
         # Store arrays
         self._organisms = np.concatenate((self._organisms, orgs))
+
 
 def test_save_and_load_simulation_memory():
     env = DummyEnv("TestEnv")

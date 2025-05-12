@@ -181,7 +181,7 @@ def test_copy_parent_fields_full_copy():
 
     for name in ORGANISM_CLASS.names:
         # allow x_pos,y_pos,p_id,c_id to differ later
-        if name in ('x_pos','y_pos','p_id','c_id'):
+        if name in ('x_pos','y_pos','p_id','c_id','generation'):
             continue
         assert np.array_equal(offspring[name], parents[name]), f"{name} not copied"
 

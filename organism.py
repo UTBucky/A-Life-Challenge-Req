@@ -2,6 +2,8 @@ import numpy as np
 from scipy.spatial import cKDTree
 import random
 from array_ops import *
+from collections import defaultdict
+from typing import Dict, List, Set, Union
 
 # Terrain avoidance constants
 WATER_PUSH = 5.0
@@ -81,8 +83,11 @@ class Organisms:
         # Lineage
         self._species_count = {}
         self._next_id = 0
+        self._founders = None
+        self._lineage_map: dict[int, list[int]] = defaultdict(list)
         # Garbage collection optimization - scratch buffers
         self._dirs = np.array([[1,0],[-1,0],[0,1],[0,-1]], np.float32)
+
 
     def load_genes(self, gene_pool):
         self._gene_pool = gene_pool
@@ -93,6 +98,9 @@ class Organisms:
 
     def get_species_count(self):
         return self._species_count
+
+    def get_lineage_map(self):
+        return self._lineage_map
 
     # Set methods
     def set_organisms(self, new_organisms):
@@ -176,15 +184,15 @@ class Organisms:
         offspring['energy'] = reproduction_costs
         self._organisms['energy'][parent_mask] -= reproduction_costs
 
-        # Assign unique IDs
-        self.increment_p_id_and_c_id(offspring, num_parents, parents)
-
         # Position offspring within bounds
         p_coords = np.stack((parents['x_pos'], parents['y_pos']), axis=1).astype(np.float32)
         raw_positions = p_coords + offset
         width, length = self._width, self._length
         offspring['x_pos'] = np.clip(raw_positions[:, 0], 0, width - 1)
         offspring['y_pos'] = np.clip(raw_positions[:, 1], 0, length - 1)
+
+        # Assign unique IDs
+        self.increment_p_id_and_c_id(offspring, num_parents, parents)
 
         # Record new species first occurrences
         gen = self._env.get_generation()
@@ -351,6 +359,7 @@ class Organisms:
     
         # --- append to full array and update births ---
         self._organisms = np.concatenate((self._organisms, spawned))
+        self._founders = self._organisms.copy()
         self._env.add_births(valid_count)
         return valid_count
 
@@ -372,7 +381,9 @@ class Organisms:
         if p_org_arr.size:
             c_org_arr['p_id'] = p_org_arr['c_id']
         else:
-            c_org_arr['p_id'] = c_org_arr['c_id']
+            c_org_arr['p_id'] = c_org_arr['c_id'] = 0
+            self._next_id = 1
+        self._track_lineage(c_org_arr['p_id'], c_org_arr['c_id'])
 
     def apply_terrain_penalties(self):
         """
@@ -807,34 +818,125 @@ class Organisms:
 
         return
 
-    def lineage(self):
+    def _track_lineage(self, parent_ids: np.ndarray, child_ids: np.ndarray):
+        # ensure Python ints (not numpy scalars)
+        for p, c in zip(parent_ids.tolist(), child_ids.tolist()):
+            self._lineage_map[int(p)].append(int(c))
+            # also ensure the child shows up (even if it has no kids yet)
+            self._lineage_map.setdefault(int(c), [])
+    
+    Tree1 = Dict[Union[int, str], "Tree"]
+    def build_tree_of_individuals(self,
+                                collapse_founders: bool = True,
+                                synthetic_root: str = "Founders"
+                            ) -> Tree1:
         """
-        Build a dict mapping each parent → list of its children.
+        Build a nested‐dict phylogeny from self._lineage_map, but optionally
+        collapse all true founders into one synthetic root node.
+
+        Args:
+        collapse_founders: if True, put all founders under `synthetic_root`
+        synthetic_root:   label to use for that virtual root
+
+        Returns:
+        A Tree, e.g.
+            { 1: {5: {17: {}}, 8: {}},
+            2: {9: {}} }
+        or, if collapse_founders=True:
+            { "Founders": {
+                1: {5: …}, 
+                2: {9: …},
+                …
+            }
+            }
         """
-        c_id_arr = self._organisms['c_id']
-        p_id_arr = self._organisms['p_id']
-        
-        # 1) sort births by parent ID
-        order = np.argsort(p_id_arr)
-        p_sorted = p_id_arr[order]
-        c_sorted = c_id_arr[order]
-        
-        # 2) find where each parent’s block of children starts, and how many
-        parents, start_idxs, counts = np.unique(
-            p_sorted,
-            return_index=True,
-            return_counts=True       # <-- was misspelled `return_coutns`
-        )
-        parents = parents.tolist()
-        start_idxs = start_idxs.tolist()
-        counts = counts.tolist()
-        # 3) build the dict parent → [child, child, …]
-        children = {
-            parent: c_sorted[start : start + cnt].tolist()
-            for parent, start, cnt in zip(parents, start_idxs, counts)
+        # 1) Extract your real roots (founders) as python ints:
+        roots: List[int] = [int(pid) for pid in self._founders["p_id"]]
+
+        forest = {}
+        visited: Set[int] = set()
+
+        # 2) Decide where our initial stack should point:
+        if collapse_founders:
+            # create the synthetic root and hang everything off it
+            forest[synthetic_root] = {}
+            initial_stack = [(r, forest[synthetic_root]) for r in roots]
+        else:
+            # each founder becomes its own top‐level key
+            initial_stack = [(r, forest) for r in roots]
+
+        # 3) Single DFS over all roots (or one big stack):
+        stack = initial_stack.copy()
+        while stack:
+            node_id, subtree_dict = stack.pop()
+            if node_id in visited:
+                continue
+            visited.add(node_id)
+
+            # create this node in its current subtree
+            subtree_dict[node_id] = {}
+            # push its children
+            for child in sorted(self._lineage_map.get(node_id, [])):
+                stack.append((child, subtree_dict[node_id]))
+
+        return forest
+
+    Tree2 = Dict[str, "Tree"]
+    def build_phylogenetic_tree(self) -> Tree2:
+        """
+        Like build_phylogenetic_tree, but collapses all individuals
+        down to unique taxa.  Assumes:
+
+        - self._lineage_map: Dict[parent_id:int, List[child_id:int]]
+        - self._organisms:     np.ndarray with fields 'c_id' and 'species'
+        - self._founders:      np.ndarray with field 'p_id'
+
+        Returns a nested‑dict tree keyed by taxon names.
+        """
+        # 1) Build an ID→taxon lookup from the full organism array
+        id_to_taxon: Dict[int, str] = {
+            int(rec['c_id']): rec['species']
+            for rec in self._organisms
         }
-        
-        return children
+        # ensure founder/zero ID gets a label
+        id_to_taxon.setdefault(0, 'Founders')
+
+        # 2) Build a taxon‑level lineage map
+        taxon_map: Dict[str, Set[str]] = defaultdict(set)
+        for parent_id, child_ids in self._lineage_map.items():
+            parent_taxon = id_to_taxon.get(parent_id, 'Founders')
+            for cid in child_ids:
+                child_taxon = id_to_taxon.get(cid, parent_taxon)
+                if child_taxon != parent_taxon:
+                    taxon_map[parent_taxon].add(child_taxon)
+
+        # ensure every taxon appears, even if it never speciated further
+        for tx in id_to_taxon.values():
+            taxon_map.setdefault(tx, set())
+
+        # 3) Determine founder taxa roots
+        roots: List[str] = list({
+            id_to_taxon.get(int(pid), 'Founders')
+            for pid in self._founders['p_id']
+        })
+
+        # 4) Build nested‑dict tree via DFS
+        tree: Tree2 = {}
+        visited: Set[str] = set()
+        stack: List[tuple[str, Tree2]] = [(r, tree) for r in roots]
+
+        while stack:
+            taxon, subtree = stack.pop()
+            if taxon in visited:
+                continue
+            visited.add(taxon)
+
+            subtree[taxon] = {}
+            for child_taxon in sorted(taxon_map[taxon]):
+                stack.append((child_taxon, subtree[taxon]))
+
+        return tree
+
 
 def random_name_generation(
     num_to_gen: int,

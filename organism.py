@@ -369,7 +369,7 @@ class Organisms:
         #
         # Founders are their own parents
         #
-        if p_org_arr['x_pos'].any():
+        if p_org_arr.size:
             c_org_arr['p_id'] = p_org_arr['c_id']
         else:
             c_org_arr['p_id'] = c_org_arr['c_id']

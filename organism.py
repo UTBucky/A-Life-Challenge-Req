@@ -644,12 +644,13 @@ class Organisms:
         deff   = orgs['defense']
         vision = orgs['vision']
         pack   = orgs['pack_behavior']
-        dt     = orgs['diet_type']
-        fly    = orgs['fly']
-        swim   = orgs['swim']
-        walk   = orgs['walk']
-        energy = orgs['energy']
+        fly = orgs['fly']
+        swim = orgs['swim']
+        walk = orgs['walk']
+        x_pos = orgs['x_pos']
+        y_pos = orgs['y_pos']
         terrain = self._env.get_terrain()
+        energy = orgs['energy']
 
         # only use pack logic if any pack_behavior is True
         use_pack = bool(pack.any())
@@ -673,74 +674,94 @@ class Organisms:
         j = nearest[attackers]        # corresponding defender indices
 
         # --- 4) Terrain/fly/swim/walk restrictions ---
-        ix = orgs['x_pos'][j].astype(int)
-        iy = orgs['y_pos'][j].astype(int)
-        tiles = terrain[iy, ix]       # (M,)
-
-        invalid = np.zeros_like(i, dtype=bool)
-        invalid |= (~fly[i] & fly[j])
-        invalid |= (~swim[i] & swim[j] & (tiles < 0))
-        invalid |= ( swim[i] & ~walk[i] & (tiles >= 0))
-        invalid |= ( swim[i] & ~fly[i]  & fly[j] & (tiles < 0))
-
+        i, j = self._terrain_restrictions(
+            i, j,
+            fly, swim, walk,
+            x_pos, y_pos,
+            terrain,
+)
         # —–––––– diet‐type restrictions –––––— #
-        dt = orgs['diet_type']
-        dt_i = dt[i]  # attacker diets
-        dt_j = dt[j]  # defender diets
+        i, j = self._diet_restrictions(i,j, orgs['diet_type'])
 
-        # 1) Photo attackers can never attack anyone:
-        invalid |= (dt_i == 'Photo')
-
-        # 2) Herb attackers can only attack Photo or Parasite, so anything else is invalid:
-        invalid |= ((dt_i == 'Herb') & ~np.isin(dt_j, ['Photo', 'Parasite']))
-
-        # 3) Carn attackers cannot attack Photo:
-        invalid |= ((dt_i == 'Carn') &  (dt_j == 'Photo'))
-
-        # Omni and Parasite attackers have no extra restrictions, so we leave them out.
-
-        valid_mask = ~invalid
-        i = i[valid_mask]
-        j = j[valid_mask]
         if i.size == 0:
             return
 
-        # --- 5) Compute net attack values ---
-        my_net    = att[i] - deff[j]    # (K,)
+        # --- Apply damage and energy gain in batch ---
+        host, prey, my_net, their_net = self._classify_engagement(i,j,att,deff,pack)
+        self._apply_damage(i,j,host,prey,my_net,their_net,energy)
+
+    def _terrain_restrictions(
+        self,
+        i: np.ndarray,
+        j: np.ndarray,
+        fly_arr: np.ndarray,
+        swim_arr: np.ndarray,
+        walk_arr: np.ndarray,
+        x_pos: np.ndarray,
+        y_pos: np.ndarray,
+        terrain: np.ndarray
+    ) -> tuple[np.ndarray, np.ndarray]:
+        """
+        Returns filtered (i, j) pairs after applying water/land/fly/swim/walk rules.
+        """
+        # pull just the columns we need:
+        xj = x_pos[j].astype(int)
+        yj = y_pos[j].astype(int)
+        tiles = terrain[yj, xj]
+
+        invalid = np.zeros_like(i, dtype=bool)
+        invalid |= (~fly_arr[i]  & fly_arr[j])
+        invalid |= (~swim_arr[i] & swim_arr[j] & (tiles < 0))
+        invalid |= ( swim_arr[i] & ~walk_arr[i] & (tiles >= 0))
+        invalid |= ( swim_arr[i] & ~fly_arr[i]  & fly_arr[j] & (tiles < 0))
+
+        keep = ~invalid
+        return i[keep], j[keep]
+
+    def _diet_restrictions(self, i, j, diet):
+        dt_i, dt_j = diet[i], diet[j]
+        invalid = np.zeros_like(i, dtype=bool)
+
+        invalid |= (dt_i == 'Photo')
+        invalid |= ( (dt_i == 'Herb') & ~np.isin(dt_j, ['Photo','Parasite']) )
+        invalid |= ( (dt_i == 'Carn') &  (dt_j == 'Photo') )
+
+        keep = ~invalid
+        return i[keep], j[keep]
+
+    def _classify_engagement(self, i, j, att, deff, pack):
+        my_net    = att[i] - deff[j]
         their_net = att[j] - deff[i]
 
-        # --- 6) Classify host vs prey ---
-        if use_pack:
+        if pack.any():
             non_pack = pack[i] & ~pack[j]
             host = (their_net > my_net) & non_pack
-            prey = (my_net    > their_net) & non_pack
+            prey = (my_net > their_net) & non_pack
         else:
             host =  their_net > my_net
-            prey =  my_net    > their_net
+            prey =  my_net > their_net
 
-        # only positive damage engagements
+        # only positive‐damage
         host &= (their_net > 0)
-        prey &= (my_net     > 0)
+        prey &= (my_net > 0)
+        return host, prey, my_net, their_net
 
-        # --- 7) Apply damage and energy gain in batch ---
-        # Hostiles: neighbor j attacked i
-        if np.any(host):
-            idx_i = i[host]           # defenders hit
-            idx_j = j[host]           # attackers
+    def _apply_damage(self, i, j, host, prey, my_net, their_net, energy):
+        # Hostiles: j attacked i, damage = their_net
+        if host.any():
+            idx_i = i[host]
+            idx_j = j[host]
             dmg   = their_net[host]
-            energy[idx_i] -= dmg      # defender loses
-            energy[idx_j] += dmg      # attacker gains
+            energy[idx_i] -= dmg
+            energy[idx_j] += dmg
 
-        # Prey: attacker i hit neighbor j
-        if np.any(prey):
-            idx_i = i[prey]           # attackers
-            idx_j = j[prey]           # defenders hit
+        # Prey: i attacked j, damage = my_net
+        if prey.any():
+            idx_i = i[prey]
+            idx_j = j[prey]
             dmg   = my_net[prey]
-            energy[idx_j] -= dmg      # defender loses
-            energy[idx_i] += dmg      # attacker gains
-        
-        #prep for reproduction
-        self.build_spatial_index()
+            energy[idx_j] -= dmg
+            energy[idx_i] += dmg
 
     def kill_border(self, margin: float = 0.03):
         """
@@ -814,7 +835,7 @@ class Organisms:
         }
         
         return children
-    
+
 def random_name_generation(
     num_to_gen: int,
     min_syllables: int = 2,

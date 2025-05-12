@@ -73,7 +73,6 @@ class Environment:
         self._organisms.move()
         self._organisms.resolve_attacks()
         self._organisms.reproduce()
-        # TODO: Could this be moved to an org method?
         self._organisms.kill_border()
         self._organisms.remove_dead()
         self._organisms.get_organisms()['energy'] -= 0.01

@@ -3,50 +3,60 @@ from scipy.spatial import cKDTree
 import random
 from array_ops import *
 
+# Terrain avoidance constants
+WATER_PUSH = 5.0
+LAND_PUSH = 5.0
+
+# Pack behavior constants
+SEPARATION_WEIGHT = 10
+SEPARATION_RADIUS = 5
+
+
 class Organisms:
     """
     Represents all organisms in an environment.
     Keeps track of all organism's statistics.
     """
     ORGANISM_CLASS = np.dtype([
-            # species label
-            ('species',           np.str_,   15),
+        # species label
+        ('species',           np.str_,   15),
 
-            # — MorphologicalGenes (size, camouflage, defense, attack, vision) —
-            ('size',              np.float32),
-            ('camouflage',        np.float32),
-            ('defense',           np.float32),
-            ('attack',            np.float32),
-            ('vision',            np.float32),
+        # — MorphologicalGenes (size, camouflage, defense, attack, vision) —
+        ('size',              np.float32),
+        ('camouflage',        np.float32),
+        ('defense',           np.float32),
+        ('attack',            np.float32),
+        ('vision',            np.float32),
 
-            # — MetabolicGenes (metabolism_rate, nutrient_efficiency, diet_type) —
-            ('metabolism_rate',   np.float32),
-            ('nutrient_efficiency', np.float32),
-            ('diet_type',         np.str_,   15),
+        # — MetabolicGenes (metabolism_rate, nutrient_efficiency, diet_type) —
+        ('metabolism_rate',   np.float32),
+        ('nutrient_efficiency', np.float32),
+        ('diet_type',         np.str_,   15),
 
-            # — ReproductionGenes (fertility_rate, offspring_count, reproduction_type) —
-            ('fertility_rate',    np.float32),
-            ('offspring_count',   np.int32),
-            ('reproduction_type', np.str_,   15),
+        # — ReproductionGenes (fertility_rate, offspring_count, reproduction_type) —
+        ('fertility_rate',    np.float32),
+        ('offspring_count',   np.int32),
+        ('reproduction_type', np.str_,   15),
 
-            # — BehavioralGenes (pack_behavior, symbiotic) —
-            ('pack_behavior',     np.bool_),
-            ('symbiotic',         np.bool_),
+        # — BehavioralGenes (pack_behavior, symbiotic) —
+        ('pack_behavior',     np.bool_),
+        ('symbiotic',         np.bool_),
 
-            # — LocomotionGenes (swim, walk, fly, speed) —
-            ('swim',              np.bool_),
-            ('walk',              np.bool_),
-            ('fly',               np.bool_),
-            ('speed',             np.float32),
+        # — LocomotionGenes (swim, walk, fly, speed) —
+        ('swim',              np.bool_),
+        ('walk',              np.bool_),
+        ('fly',               np.bool_),
+        ('speed',             np.float32),
 
-            # — Simulation bookkeeping —
-            ('energy',            np.float32),
-            ('x_pos',             np.float32),
-            ('y_pos',             np.float32),
-                # — Lineage tracking —
-            ('p_id',                  np.int32),
-            ('c_id',                  np.int32),
-        ])
+        # — Simulation bookkeeping —
+        ('energy',            np.float32),
+        ('x_pos',             np.float32),
+        ('y_pos',             np.float32),
+            # — Lineage tracking —
+        ('p_id',                  np.int32),
+        ('c_id',                  np.int32),
+    ])
+
     def __init__(self, env: object, O_CLASS = ORGANISM_CLASS):
         """
         Initialize an organism object.
@@ -118,86 +128,76 @@ class Organisms:
 
     def reproduce(self):
         """
-        Causes all organisms that can to reproduce.
-        Spawns offspring near the parent
+        Trigger reproduction for all eligible organisms.
+
+        Parents with sufficient energy and safe proximity spawn one offspring each.
+        Offspring inherit traits, may randomly mutate, and are placed near their parent.
+
+        Effects:
+        - Deducts reproduction cost from parents’ energy
+        - Initializes offspring IDs and lineage
+        - Records new species when first encountered
+        - Updates environment birth count
         """
         orgs = self._organisms
-        coords        = np.stack((orgs['x_pos'], orgs['y_pos']), axis=1)
-        tree          = self._pos_tree  # a cKDTree built on coords
+        coords = np.stack((orgs['x_pos'], orgs['y_pos']), axis=1)
+        tree = self._pos_tree  # cKDTree built on coords
 
-        # 2) Vectorized: find each organism’s *distance* to its nearest *other* neighbor
-        #    - query k=2: idx 0 is self (dist=0), idx 1 is true nearest neighbor
-        dists, idxs = tree.query(coords, k=2)     # dists.shape == (N,2)
-        nearest_dist = dists[:, 1]                # shape (N,)
-        # 3) Build a boolean mask of “safe” organisms
-        too_close   = 7.5
-        safe_mask   = nearest_dist >= too_close   # True if OK to interact
+        # Compute distance to nearest other organism
+        dists, _ = tree.query(coords, k=2)
+        nearest_dist = dists[:, 1]
+        safe_mask = nearest_dist >= 7.5
 
-        
-        # Obtains an array of all reproducing organisms
-        reproducing = (self._organisms['energy']
-                    >
-                    (self._organisms['fertility_rate']
-                    *
-                    self._organisms['size'])*10)
-        
-        
-        if not np.any(reproducing):
-            return
+        # Identify parents with enough energy
+        energy = orgs['energy']
+        cost = orgs['fertility_rate'] * orgs['size'] * 10
+        reproducing = energy > cost
         parent_mask = reproducing & safe_mask
-        parents = self._organisms[parent_mask]
-        parent_reproduction_costs = (10*
-            self._organisms['fertility_rate'][parent_mask]
-            * self._organisms['size'][parent_mask]
-        )
+        if not np.any(parent_mask):
+            return
 
-        # TODO: Implement number of children, currently just one offspring
-        # Put children randomly nearby
-        offset = np.random.uniform(-20, 20, size=(parents.shape[0], 2))
-        offspring = np.empty((parents.shape[0],), dtype=self._organism_dtype)
+        parents = orgs[parent_mask]
+        reproduction_costs = cost[parent_mask]
 
+        # Single offspring per parent, randomized offset
+        num_parents = parents.shape[0]
+        offset = np.random.uniform(-20, 20, size=(num_parents, 2))
+        offspring = np.empty(num_parents, dtype=self._organism_dtype)
 
-        # Create offspring simulation bookkeeping
+        # Inherit and possibly mutate traits
         copy_parent_fields(parents, offspring)
+        flip_mask = (np.random.rand(num_parents) < 0.01).astype(bool)
+        if flip_mask.any():
+            names = random_name_generation(flip_mask.sum())
+            offspring['species'][flip_mask] = names
+            mutate_offspring(offspring, flip_mask, self._gene_pool, flip_mask.sum())
 
-        # --- Mutate mutated spawns ---
-        # Use a bool mask with a % mutation chance to mutate
-        # TODO: make this value adjustable?
-        flip_mask = (np.random.rand(offspring.shape[0]) < 0.01).astype(bool)
-        m = flip_mask.sum()
-        species_arr = random_name_generation(m)
-        offspring['species'][flip_mask] = species_arr
-        
-        
-        mutate_offspring(offspring,flip_mask,self._gene_pool,m)
+        # Assign energy and deduct cost from parents
+        offspring['energy'] = reproduction_costs
+        self._organisms['energy'][parent_mask] -= reproduction_costs
 
+        # Assign unique IDs
+        self.increment_p_id_and_c_id(offspring, num_parents, parents)
 
-        offspring['energy'] = parent_reproduction_costs
-        self._organisms['energy'][parent_mask] -= parent_reproduction_costs
+        # Position offspring within bounds
+        p_coords = np.stack((parents['x_pos'], parents['y_pos']), axis=1).astype(np.float32)
+        raw_positions = p_coords + offset
         width, length = self._width, self._length
-        raw_x = parents['x_pos'] + offset[:, 0]
-        raw_y = parents['y_pos'] + offset[:, 1]
+        offspring['x_pos'] = np.clip(raw_positions[:, 0], 0, width - 1)
+        offspring['y_pos'] = np.clip(raw_positions[:, 1], 0, length - 1)
 
-        #initialize id based on number that was produced
-        self.increment_p_id_and_c_id(offspring,offspring.shape[0],parents)
-
-        offspring['x_pos'] = np.clip(raw_x, 0, width  - 1)
-        offspring['y_pos'] = np.clip(raw_y, 0, length - 1)
-
-        # Speciation and lineage tracking
-        # Do this after it's declared valid in the environment
+        # Record new species first occurrences
         gen = self._env.get_generation()
-        
-        species_arr = offspring['species'][flip_mask]
-        c_id_arr    = offspring['c_id'][flip_mask]
-        p_id_arr    = offspring['p_id'][flip_mask]
+        for sp, c_id, p_id in zip(
+            offspring['species'][flip_mask],
+            offspring['c_id'][flip_mask],
+            offspring['p_id'][flip_mask]
+        ):
+            if sp not in self._species_count:
+                self._species_count[sp] = [int(c_id), int(p_id), gen]
+                print(f"New species added: {sp} (gen {gen})")
 
-        for species, c_id, p_id in zip(species_arr, c_id_arr, p_id_arr):
-            if species not in self._species_count:
-                # store as [c_id, p_id, generation]
-                self._species_count[species] = [int(c_id), int(p_id), gen]
-                print(f"New species added: {species} ({gen})")
-
+        # Finalize births
         self._env.add_births(offspring.shape[0])
         self._organisms = np.concatenate((self._organisms, offspring))
 
@@ -375,22 +375,27 @@ class Organisms:
             c_org_arr['p_id'] = c_org_arr['c_id']
 
     def apply_terrain_penalties(self):
-        """"""
+        """
+        Deduct energy from organisms that are out of their compatible terrain.
+
+        - Retrieves terrain height map from the environment.
+        - Builds masks for “swim-only” (must be in water) and “walk-only” (must be on land).
+        - Flags any swim-only organisms on land or walk-only organisms in water.
+        - Applies an energy penalty proportional to their metabolism rate.
+        """
         terrain = self._env.get_terrain()
         ix = self._organisms['x_pos'].astype(np.int32)
         iy = self._organisms['y_pos'].astype(np.int32)
         land_mask = terrain[iy, ix] >= 0
 
-        # Penalize energy for out-of-terrain conditions
         orgs = self._organisms
         swim_only = orgs['swim'] & ~orgs['walk'] & ~orgs['fly']
         walk_only = orgs['walk'] & ~orgs['swim'] & ~orgs['fly']
 
         # swim-only on land, or walk-only in water
-        penalty = (swim_only & land_mask) | \
-            (walk_only & ~land_mask)
+        penalty = (swim_only & land_mask) | (walk_only & ~land_mask)
 
-        # subtract 5 energy per violation (they die via remove_dead when energy ≤ 0)
+        # subtract 0.1 * metabolism_rate for each violation
         orgs['energy'][penalty] -= 0.1 * orgs['metabolism_rate'][penalty]
 
     def compute_terrain_avoidance(self, coords: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
@@ -435,6 +440,16 @@ class Organisms:
         return avoid_land, avoid_water
 
     def move(self):
+        """
+        Advance each organism one time step by computing and applying its movement vector.
+
+        - Applies terrain penalties before movement.
+        - Uses a spatial index to find neighbors within vision radius.
+        - Applies species-specific behavior (photosynthesis, pack cohesion, predation).
+        - Avoids terrain mismatches (land vs. water) when moving.
+        - Normalizes and scales movement by each organism’s speed.
+        - Clips new positions to world bounds and deducts energy based on distance moved.
+        """
         orgs = self._organisms
         N = orgs.shape[0]
         if N == 0:
@@ -442,10 +457,9 @@ class Organisms:
 
         self.apply_terrain_penalties()
 
-        terrain = self._env.get_terrain()
         width, length = self._width, self._length
         coords = np.stack((orgs['x_pos'], orgs['y_pos']), axis=1)
-        
+
         vision_radii = orgs['vision']
         neigh_lists = self._pos_tree.query_ball_point(coords, vision_radii, workers=-1)
 
@@ -501,8 +515,6 @@ class Organisms:
             # — behavioral overrides (pack) —
             if my_pack:
                 steer = np.zeros(2, dtype=np.float32)
-                SEPARATION_WEIGHT = 10
-                SEPARATION_RADIUS = 5
 
                 # 1) compute net strengths against each neighbor in `valid`
                 non_pack_mask = ~pack_flag[valid]       # True for neighbors that are NOT pack mates
@@ -538,8 +550,6 @@ class Organisms:
                                 steer += repulse * SEPARATION_WEIGHT
 
                 # terrain avoidance
-                WATER_PUSH = 5.0
-                LAND_PUSH = 5.0
                 if not my_swim:
                     steer += WATER_PUSH * avoid_water[i]
                 if not my_walk:
@@ -585,8 +595,7 @@ class Organisms:
                 move_vec += CROWD_PUSH * repulse
 
             # terrain avoidance
-            WATER_PUSH = 5.0
-            LAND_PUSH = 5.0
+
             if not my_swim:
                 move_vec += WATER_PUSH * avoid_water[i]
             if not my_walk:

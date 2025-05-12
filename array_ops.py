@@ -1,7 +1,7 @@
 import numpy as np
 from typing import Tuple, Dict
 
-
+#In-Place mutator
 def copy_valid_count( 
     spawned: np.ndarray, 
     valid_count: np.ndarray,
@@ -47,7 +47,7 @@ def copy_valid_count(
         spawned['energy']             = energy_arr[:valid_count]
     return spawned
 
-
+# In-Place mutator
 def copy_parent_fields( 
     parents: np.ndarray, 
     offspring: np.ndarray,
@@ -72,7 +72,7 @@ def copy_parent_fields(
     offspring['speed']             = parents['speed']
     return 
 
-
+# In-Place mutator 
 def mutate_offspring(
     offspring, 
     flip_mask,
@@ -173,7 +173,7 @@ def mutate_offspring(
                                                     size=m
                                                 ).astype(np.float32)
 
-
+# Returns new arrays
 def initialize_default_traits(
     n: int,
     gene_pool: Dict[str, list]
@@ -235,7 +235,7 @@ def initialize_default_traits(
         swim_arr, walk_arr, fly_arr, speed_arr, energy_arr
     )
 
-
+# Returns new arrays
 def initialize_random_traits(
     n: int,
     gene_pool: Dict[str, list]
@@ -324,6 +324,7 @@ def initialize_random_traits(
         swim_arr, walk_arr, fly_arr, speed_arr, energy_arr
     )
 
+# Returns new arrays
 def calculate_valid_founder_terrain(
     env_terrain: np.ndarray,
     swim_arr: np.ndarray,

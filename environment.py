@@ -75,15 +75,15 @@ class Environment:
         """
         Steps one generation forward in the simulation.
         """
-        if self._generation % 50 == 0 and self._generation > 0:
-            tree = Phylo.read(StringIO(dict_to_newick(self._organisms.build_phylogenetic_tree())), "newick")
-            fig, ax = plt.subplots(figsize=(12, 8))
-            Phylo.draw(tree, axes=ax, do_show=False)
-            ax.set_title("Phylogenetic Tree (root→left, tips→right)")
-            print('printed plot')
-            fig.tight_layout()
-            fig.savefig("phylo_tree.png", bbox_inches="tight")
-            plt.close(fig)
+        # if self._generation % 50 == 0 and self._generation > 0:
+        #     tree = Phylo.read(StringIO(dict_to_newick(self._organisms.build_phylogenetic_tree())), "newick")
+        #     fig, ax = plt.subplots(figsize=(12, 8))
+        #     Phylo.draw(tree, axes=ax, do_show=False)
+        #     ax.set_title("Phylogenetic Tree (root→left, tips→right)")
+        #     print('printed plot')
+        #     fig.tight_layout()
+        #     fig.savefig("phylo_tree.png", bbox_inches="tight")
+        #     plt.close(fig)
         self._organisms.build_spatial_index()
         self._organisms.move()
         self._organisms.resolve_attacks()

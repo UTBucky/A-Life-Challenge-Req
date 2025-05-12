@@ -43,6 +43,7 @@ def copy_valid_count(
     spawned['walk']               = walk_arr[:valid_count]
     spawned['fly']                = fly_arr[:valid_count]
     spawned['speed']              = speed_arr[:valid_count]
+    spawned['generation']         = np.full(valid_count, 0).astype(np.int32)
     if energy_arr.any():
         spawned['energy']             = energy_arr[:valid_count]
     return spawned
@@ -70,6 +71,7 @@ def copy_parent_fields(
     offspring['walk']              = parents['walk']
     offspring['fly']               = parents['fly']
     offspring['speed']             = parents['speed']
+    offspring['generation']        = parents['generation'] + 1
     return 
 
 # In-Place mutator 

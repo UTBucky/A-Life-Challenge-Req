@@ -3,7 +3,7 @@ from scipy.spatial import cKDTree
 import random
 from array_ops import *
 from collections import defaultdict
-from typing import Dict, List, Set, Union
+from lineage_tracker import *
 
 # Terrain avoidance constants
 WATER_PUSH = 5.0
@@ -82,6 +82,7 @@ class Organisms:
         self._gene_pool = None
         
         # Lineage
+        self._lineage_tracker = LineageTracker()
         self._species_count = {}
         self._next_id = 0
         self._founders = None
@@ -100,8 +101,8 @@ class Organisms:
     def get_species_count(self):
         return self._species_count
 
-    def get_lineage_map(self):
-        return self._lineage_map
+    def get_lineage_tracker(self):
+        return self._lineage_tracker
 
     # Set methods
     def set_organisms(self, new_organisms):
@@ -811,8 +812,10 @@ class Organisms:
         #
         # Founders are their own parents
         #
+        gen = self._env.get_generation()
         if p_org_arr.size:
             c_org_arr['p_id'] = p_org_arr['c_id']
+            self._lineage_tracker.track_lineage(p_org_arr,c_org_arr,gen)
         else:
             c_org_arr['p_id'] = c_org_arr['c_id'] = 0
             self._next_id = 1

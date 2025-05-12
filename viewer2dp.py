@@ -226,4 +226,8 @@ class Viewer2D:
                     if saved_env is not None:
                         self.env = saved_env
                         self.timestep = saved_timestep
+                
+                # TODO: Add the following button for creating a phylogenetic tree.
+                # tree = Phylo.read((StringIO(self.env.get_organisms().get_lineage_tracker().full_forest_newick())), "newick")
+                # Phylo.write(tree, "my_tree.nwk", "newick")
         return True

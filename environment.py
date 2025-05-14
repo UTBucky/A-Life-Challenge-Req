@@ -3,10 +3,6 @@ from scipy.ndimage import zoom, gaussian_gradient_magnitude
 import numpy as np
 from organism import Organisms
 from io import StringIO
-import matplotlib
-# switch to a non‐interactive backend so no GUI pops up
-matplotlib.use("Agg")
-import matplotlib.pyplot as plt
 from Bio import Phylo
 
 class Environment:
@@ -86,28 +82,6 @@ class Environment:
         self._organisms.remove_dead()
         self._organisms.get_organisms()['energy'] -= 0.01
         self._generation += 1
-
-
-def dict_to_newick(tree: dict[int, dict]) -> str:
-    """
-    Convert a nested‐dict tree into a Newick string.
-    Example input: {1: {5: {17: {}}, 8: {}}, 2: {9: {}}}
-    Returns: "( (17)5,8 )1, (9)2 );"
-    """
-    def _rec(subtree: dict[int, dict]) -> str:
-        # subtree is {node: child_subtree, ...}
-        parts = []
-        for node, children in subtree.items():
-            if children:
-                parts.append(f"{_rec(children)}{node}")
-            else:
-                parts.append(str(node))
-        # join siblings with commas and wrap in parentheses
-        return "(" + ",".join(parts) + ")"
-    # top‐level may have multiple roots; wrap them too
-    newick_body = ",".join(_rec({r: tree[r]}) + str(r) for r in tree)
-    return newick_body + ";"
-
 
 def generate_fractal_terrain(
     width,

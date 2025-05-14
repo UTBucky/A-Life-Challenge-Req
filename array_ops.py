@@ -3,28 +3,56 @@ from typing import Tuple, Dict
 
 #In-Place mutator
 def copy_valid_count( 
-    spawned: np.ndarray, 
-    valid_count: np.ndarray,
-    species_arr,
-    size_arr,
-    camouflage_arr,
-    defense_arr,
-    attack_arr,
-    vision_arr,
-    metabolism_rate_arr,
-    nutrient_efficiency_arr,
-    diet_type_arr,
-    fertility_rate_arr,
-    offspring_count_arr,
-    reproduction_type_arr,
-    pack_behavior_arr,
-    symbiotic_arr,
-    swim_arr,
-    walk_arr,
-    fly_arr,
-    speed_arr,
-    energy_arr,
+    spawned:                    np.ndarray,
+    valid_count:                np.ndarray,
+    species_arr:                np.ndarray,
+    size_arr:                   np.ndarray,
+    camouflage_arr:             np.ndarray,
+    defense_arr:                np.ndarray,
+    attack_arr:                 np.ndarray,
+    vision_arr:                 np.ndarray,
+    metabolism_rate_arr:        np.ndarray,
+    nutrient_efficiency_arr:    np.ndarray,
+    diet_type_arr:              np.ndarray,
+    fertility_rate_arr:         np.ndarray,
+    offspring_count_arr:        np.ndarray,
+    reproduction_type_arr:      np.ndarray,
+    pack_behavior_arr:          np.ndarray,
+    symbiotic_arr:              np.ndarray,
+    swim_arr:                   np.ndarray,
+    walk_arr:                   np.ndarray,
+    fly_arr:                    np.ndarray,
+    speed_arr:                  np.ndarray,
+    energy_arr:                 np.ndarray,
     ) -> np.ndarray:
+    """
+    Sets the spawned founding organism attributes with the values generated in the inputted
+    arrays. It only sets the attributes for the organisms that are within the valid_count mask.
+    Parameters:
+    -----------
+        Spawned: np.ndarray
+        species_arr: np.ndarray
+        size_arr: np.ndarray
+        camouflage_arr: np.ndarray
+        defense_arr: np.ndarray
+        attack_arr: np.ndarray
+        vision_arr: np.ndarray
+        metabolism_rate_arr: np.ndarray
+        nutrient_efficiency_arr: np.ndarray
+        diet_type_arr: np.ndarray
+        fertility_rate_arr: np.ndarray
+        offspring_count_arr: np.ndarray
+        reproduction_type_arr: np.ndarray
+        pack_behavior_arr: np.ndarray
+        symbiotic_arr: np.ndarray
+        swim_arr: np.ndarray
+        walk_arr: np.ndarray
+        fly_arr: np.ndarray
+        speed_arr: np.ndarray
+        energy_arr: np.ndarray
+        
+        
+    """
     spawned['species']            = species_arr[:valid_count]
     spawned['size']               = size_arr[:valid_count]
     spawned['camouflage']         = camouflage_arr[:valid_count]

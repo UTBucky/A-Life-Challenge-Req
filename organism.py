@@ -174,6 +174,10 @@ class Organisms:
         # Find which organisms are able to reproduce and determine costs
         parents, reproduction_costs, parent_mask = self._determine_valid_parents()
 
+        # No valid parents means we stop right here
+        if not np.any(parent_mask):
+            return 
+
         # Single offspring per parent, randomized offset
         num_parents = parents.shape[0]
         offset = np.random.uniform(-20, 20, size=(num_parents, 2))
@@ -257,12 +261,14 @@ class Organisms:
         reproducing = energy > cost
         parent_mask = reproducing & safe_mask
         if not np.any(parent_mask):
-            return
+            return np.zeros(0, dtype=self._organism_dtype), np.zeros(0, dtype=np.float32), np.zeros(0, dtype=bool)
 
         return orgs[parent_mask], cost[parent_mask], parent_mask
     
-    def spawn_initial_organisms(self, number_of_organisms: int,
-                                randomize: bool = False) -> int:
+    def spawn_initial_organisms(self, 
+        number_of_organisms: int,
+        randomize: bool = False
+        ) -> int:
         """
         Spawns the initial organisms in the simulation.
         Organism stats can be randomized if desired.
@@ -437,7 +443,12 @@ class Organisms:
         # subtract 0.1 * metabolism_rate for each violation
         orgs['energy'][penalty] -= 0.1 * orgs['metabolism_rate'][penalty]
 
-    def compute_terrain_avoidance(self, coords: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    def compute_terrain_avoidance(self, 
+        coords: np.ndarray
+        ) -> Tuple[
+            np.ndarray,
+            np.ndarray
+        ]:
         """
         Given an (N,2) array of positions, compute per‐organism
         avoidance vectors for water and land based on the 4‐neighborhood.
@@ -691,9 +702,6 @@ class Organisms:
         terrain = self._env.get_terrain()
         energy = orgs['energy']
 
-        # only use pack logic if any pack_behavior is True
-        use_pack = bool(pack.any())
-
         # --- 1) Ensure KD-Tree is fresh ---
         if self._pos_tree is None:
             self.build_spatial_index()
@@ -772,7 +780,7 @@ class Organisms:
         my_net    = att[i] - deff[j]
         their_net = att[j] - deff[i]
 
-        if pack.any():
+        if bool(pack.any()):
             non_pack = pack[i] & ~pack[j]
             host = (their_net > my_net) & non_pack
             prey = (my_net > their_net) & non_pack

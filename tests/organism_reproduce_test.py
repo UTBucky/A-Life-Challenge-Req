@@ -149,6 +149,60 @@ def test_reproduce_no_offspring_when_energy_not_sufficient(monkeypatch):
     assert orgs.get_organisms().shape[0] == 2
     assert env.births == 0
 
+def test_determine_valid_parents():
+    """
+    Test for _determine_valid_parents to ensure:
+    1. Only organisms with sufficient energy and safe distance are selected.
+    2. Costs are calculated correctly.
+    3. Masks are generated correctly.
+    """
+    env = DummyEnvForReproduce()
+    orgs = Organisms(env)
+
+    # Create parents:
+    # - (0, 0) and (20, 0) are far enough apart (> 7.5 units)
+    # - (1, 1) is too close to (0, 0), should be filtered out
+    parents = make_parents(
+        env,
+        coords=[(0.0, 0.0), (20.0, 0.0), (30.0, 30.0)],
+        energies=[20.0, 15.0, 5.0],
+        fert_rates=[0.1, 0.2, 0.5],  # Costs: [1.0, 2.0, 5.0]
+        sizes=[1.0, 1.0, 1.0],
+        parent_ids=[0, 1, 2]
+    )
+
+    # Initialize the organisms and spatial index
+    orgs.set_organisms(parents)
+    orgs.load_genes(MINIMAL_GENE_POOL)
+    orgs.build_spatial_index()
+
+    # Execute the _determine_valid_parents() function
+    result_parents, result_costs, result_mask = orgs._determine_valid_parents()
+
+    # Expected Results
+    expected_x_pos = [0.0, 20.0]
+    expected_y_pos = [0.0, 0.0]
+    expected_costs = [1.0, 2.0]
+    expected_mask = [True, True, False]
+
+    # --- Assertions ---
+    # Length check
+    assert len(result_parents) == 2, f"Expected 2 parents, got {len(result_parents)}"
+    
+    # Position validation
+    assert np.allclose(result_parents['x_pos'], expected_x_pos), f"X positions mismatch: {result_parents['x_pos']}"
+    assert np.allclose(result_parents['y_pos'], expected_y_pos), f"Y positions mismatch: {result_parents['y_pos']}"
+    
+    # Cost validation
+    assert np.allclose(result_costs, expected_costs), f"Reproduction costs mismatch: {result_costs}"
+    
+    # Mask validation
+    assert np.array_equal(result_mask, expected_mask), f"Parent mask mismatch: {result_mask}"
+
+    # 5Ensure types are correct (no float64 errors)
+    assert result_parents.dtype == orgs._organism_dtype, "Parent dtype mismatch"
+    assert result_costs.dtype == np.float32, "Cost dtype mismatch"
+    assert result_mask.dtype == bool, "Mask dtype mismatch"
 
 def test_reproduce_no_offspring_when_too_close(monkeypatch):
     env = DummyEnvForReproduce()

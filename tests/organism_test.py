@@ -42,7 +42,7 @@ def test_init_and_defaults():
     assert arr.shape == (0,)
 
     # species count starts empty
-    assert orgs.get_species_count() == {}
+    assert orgs.get_speciation_dict() == {}
 
     # private state initialized
     assert orgs._next_id == 0

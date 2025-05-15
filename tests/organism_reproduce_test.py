@@ -123,7 +123,7 @@ def test_reproduce_happy_path(monkeypatch):
     assert env.births == 2
 
     # No new species added in species_count (no mutation)
-    assert orgs.get_species_count() == {}
+    assert orgs.get_speciation_dict() == {}
 
 
 def test_reproduce_no_offspring_when_energy_not_sufficient(monkeypatch):

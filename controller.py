@@ -20,7 +20,7 @@ def main():
     # Spawn initial organisms
     # TODO: Implement choice to randomize initial organisms
     gene_pool = load_genes_from_file()
-    env.get_organisms()._gene_pool = gene_pool
+    env.get_organisms().load_genes(gene_pool)
     number_of_organisms = int(NUM_ORGANISMS)
     env.get_organisms().spawn_initial_organisms(number_of_organisms)
 

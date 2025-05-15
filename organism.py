@@ -83,7 +83,7 @@ class Organisms:
         
         # Lineage
         self._lineage_tracker = LineageTracker()
-        self._species_count = {}
+        self._speciation_dict = {}
         self._next_id = 0
         self._founders = None
         self._lineage_map: dict[int, list[int]] = defaultdict(list)
@@ -92,20 +92,42 @@ class Organisms:
 
 
     def load_genes(self, gene_pool):
+        """
+        Loads the gene pool dictionary.
+        """
         self._gene_pool = gene_pool
 
     # Get methods
-    def get_organisms(self):
+    def get_genes(self) -> dict:
+        """
+        Returns the gene pool dictionary.
+        """
+        return self._gene_pool
+
+    def get_organisms(self) -> np.ndarray:
+        """
+        Returns the numpy array of organism_dtypes.
+        """
         return self._organisms
 
-    def get_species_count(self):
-        return self._species_count
+    def get_speciation_dict(self) -> dict:
+        """
+        Returns the dictionary of speciation events.
+        """
+        return self._speciation_dict
 
-    def get_lineage_tracker(self):
+    def get_lineage_tracker(self) -> LineageTracker:
+        """
+        Returns the LineageTracker object associated with tracking
+        lineages of the associated Organisms object.
+        """
         return self._lineage_tracker
 
     # Set methods
     def set_organisms(self, new_organisms):
+        """
+        Changes the organisms array within the Organisms object
+        """
         self._organisms = new_organisms
 
     def build_spatial_index(self):
@@ -149,6 +171,77 @@ class Organisms:
         - Records new species when first encountered
         - Updates environment birth count
         """
+        # Find which organisms are able to reproduce and determine costs
+        parents, reproduction_costs, parent_mask = self._determine_valid_parents()
+
+        # Single offspring per parent, randomized offset
+        num_parents = parents.shape[0]
+        offset = np.random.uniform(-20, 20, size=(num_parents, 2))
+        offspring = np.empty(num_parents, dtype=self._organism_dtype)
+
+        # Inherit parent traits  
+        copy_parent_fields(parents, offspring)
+        
+        # Chance of mutating traits based on a mask
+        flip_mask = (np.random.rand(num_parents) < 0.01).astype(bool)
+        if flip_mask.any():
+            names = random_name_generation(flip_mask.sum())
+            offspring['species'][flip_mask] = names
+            mutate_offspring(offspring, flip_mask, self._gene_pool, flip_mask.sum())
+
+        # Assign energy and deduct cost from parents
+        offspring['energy'] = reproduction_costs
+        self._organisms['energy'][parent_mask] -= reproduction_costs
+
+        # Position offspring within bounds
+        p_coords = np.stack((parents['x_pos'], parents['y_pos']), axis=1).astype(np.float32)
+        raw_positions = p_coords + offset
+        offspring['x_pos'] = np.clip(raw_positions[:, 0], 0, self._width - 1)
+        offspring['y_pos'] = np.clip(raw_positions[:, 1], 0, self._length - 1)
+
+        # Assign unique IDs
+        self.increment_p_id_and_c_id(offspring, num_parents, parents)
+        
+        # Record new species first occurrences
+        self._log_speciation(offspring,flip_mask)
+
+        # Finalize births
+        self._env.add_births(offspring.shape[0])
+        self._organisms = np.concatenate((self._organisms, offspring))
+
+    def _log_speciation(self, offspring, flip_mask):
+        """
+        Announces when a speciation event occurs and records the new species.
+        The generation that the new species arose is also documented.
+        """
+        gen = self._env.get_generation()
+        for sp, c_id, p_id in zip(
+            offspring['species'][flip_mask],
+            offspring['c_id'][flip_mask],
+            offspring['p_id'][flip_mask]
+        ):
+            if sp not in self._speciation_dict:
+                self._speciation_dict[sp] = [int(c_id), int(p_id), gen]
+                print(f"New species added: {sp} (gen {gen})")
+
+    def _determine_valid_parents(self
+        ) -> Tuple[
+            np.ndarray, 
+            np.ndarray, 
+            np.ndarray
+        ]:
+        """
+        Determines which organisms are eligible to reproduce.
+        - Eligible organisms cannot have another organism within 7.5 units of them
+            -This will be changed to a global constant later 
+        - Must have greater energy than size * fertility rate * 10
+            -Can also modify the base reproducing threshhold to a global constant
+        Returns:
+        --------
+        - Numpy array of organisms that will reproduce
+        - the associated costs of reproduction specific to reproducing parents
+        - A mask of values identifying which organisms will reproduce
+        """
         orgs = self._organisms
         coords = np.stack((orgs['x_pos'], orgs['y_pos']), axis=1)
         tree = self._pos_tree  # cKDTree built on coords
@@ -166,50 +259,8 @@ class Organisms:
         if not np.any(parent_mask):
             return
 
-        parents = orgs[parent_mask]
-        reproduction_costs = cost[parent_mask]
-
-        # Single offspring per parent, randomized offset
-        num_parents = parents.shape[0]
-        offset = np.random.uniform(-20, 20, size=(num_parents, 2))
-        offspring = np.empty(num_parents, dtype=self._organism_dtype)
-
-        # Inherit and possibly mutate traits
-        copy_parent_fields(parents, offspring)
-        flip_mask = (np.random.rand(num_parents) < 0.01).astype(bool)
-        if flip_mask.any():
-            names = random_name_generation(flip_mask.sum())
-            offspring['species'][flip_mask] = names
-            mutate_offspring(offspring, flip_mask, self._gene_pool, flip_mask.sum())
-
-        # Assign energy and deduct cost from parents
-        offspring['energy'] = reproduction_costs
-        self._organisms['energy'][parent_mask] -= reproduction_costs
-
-        # Position offspring within bounds
-        p_coords = np.stack((parents['x_pos'], parents['y_pos']), axis=1).astype(np.float32)
-        raw_positions = p_coords + offset
-        width, length = self._width, self._length
-        offspring['x_pos'] = np.clip(raw_positions[:, 0], 0, width - 1)
-        offspring['y_pos'] = np.clip(raw_positions[:, 1], 0, length - 1)
-
-        # Assign unique IDs
-        self.increment_p_id_and_c_id(offspring, num_parents, parents)
-        # Record new species first occurrences
-        gen = self._env.get_generation()
-        for sp, c_id, p_id in zip(
-            offspring['species'][flip_mask],
-            offspring['c_id'][flip_mask],
-            offspring['p_id'][flip_mask]
-        ):
-            if sp not in self._species_count:
-                self._species_count[sp] = [int(c_id), int(p_id), gen]
-                print(f"New species added: {sp} (gen {gen})")
-
-        # Finalize births
-        self._env.add_births(offspring.shape[0])
-        self._organisms = np.concatenate((self._organisms, offspring))
-
+        return orgs[parent_mask], cost[parent_mask], parent_mask
+    
     def spawn_initial_organisms(self, number_of_organisms: int,
                                 randomize: bool = False) -> int:
         """
@@ -236,8 +287,6 @@ class Organisms:
                 camouflage_arr,
                 defense_arr,
                 attack_arr,
-
-                # — Sensory —
                 vision_arr,
 
                 # — Metabolic parameters —

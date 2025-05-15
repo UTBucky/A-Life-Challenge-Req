@@ -242,9 +242,9 @@ class Organisms:
             -Can also modify the base reproducing threshhold to a global constant
         Returns:
         --------
-        - Numpy array of organisms that will reproduce
-        - the associated costs of reproduction specific to reproducing parents
-        - A mask of values identifying which organisms will reproduce
+        - np.ndarray: Array of organisms that will reproduce
+        - np.ndarray: Associated reproduction costs for each reproducing organism
+        - np.ndarray: Boolean mask identifying which organisms are eligible for reproduction
         """
         orgs = self._organisms
         coords = np.stack((orgs['x_pos'], orgs['y_pos']), axis=1)
@@ -266,17 +266,17 @@ class Organisms:
         return orgs[parent_mask], cost[parent_mask], parent_mask
     
     def spawn_initial_organisms(self, 
-        number_of_organisms: int,
-        randomize: bool = False
+        number_of_organisms:    int,
+        randomize:              bool = False
         ) -> int:
         """
         Spawns the initial organisms in the simulation.
         Organism stats can be randomized if desired.
         Updates the birth counter in the environment.
 
-        :param number_of_organisms: Number of organisms to spawn
-        :param randomize: Request to randomize stats of spawned organisms
-        :returns: how many organisms were actually placed
+        :param number_of_organisms: Number of organisms to spawn (int)
+        :param randomize:  Request to randomize stats of spawned organisms (bool)
+        :returns: how many organisms were actually placed (int)
         """
         # --- get environment info ---
         env_width = self._width
@@ -452,10 +452,10 @@ class Organisms:
         """
         Given an (N,2) array of positions, compute per‐organism
         avoidance vectors for water and land based on the 4‐neighborhood.
-        
+
         Returns:
-            avoid_land  : np.ndarray of shape (N,2)
-            avoid_water : np.ndarray of shape (N,2)
+        - avoid_land  : np.ndarray of shape (N,2)
+        - avoid_water : np.ndarray of shape (N,2)
         """
         N = coords.shape[0]
         terrain = self._env.get_terrain()
@@ -738,18 +738,34 @@ class Organisms:
         self._apply_damage(i,j,host,prey,my_net,their_net,energy)
 
     def _terrain_restrictions(
-        self,
-        i: np.ndarray,
-        j: np.ndarray,
-        fly_arr: np.ndarray,
-        swim_arr: np.ndarray,
-        walk_arr: np.ndarray,
-        x_pos: np.ndarray,
-        y_pos: np.ndarray,
-        terrain: np.ndarray
-    ) -> tuple[np.ndarray, np.ndarray]:
+            self,
+            i:        np.ndarray,
+            j:        np.ndarray,
+            fly_arr:  np.ndarray,
+            swim_arr: np.ndarray,
+            walk_arr: np.ndarray,
+            x_pos:    np.ndarray,
+            y_pos:    np.ndarray,
+            terrain:  np.ndarray
+        ) -> Tuple[
+        np.ndarray, 
+        np.ndarray
+        ]:
         """
-        Returns filtered (i, j) pairs after applying water/land/fly/swim/walk rules.
+        :Parameters:
+        - i : Attackers : numpy array
+        - j : Defenders : numpy array
+        - fly_arr : boolean mask of orgs with flying property
+        - swim_arr : boolean mask of orgs with swimming property
+        - walk_arr : boolean mask of orgs with walking property
+        - x_pos : Array of x positions
+        - y_pos : Array of y positions
+        - terrain : f32 mask of terrain values
+        
+        :Returns:
+        - Tuple of filtered np.ndarray in a tuple of 
+        (attacker, nearest_attacker) pairs after 
+        applying water/land/fly/swim/walk rules.
         """
         # pull just the columns we need:
         xj = x_pos[j].astype(int)
@@ -765,7 +781,25 @@ class Organisms:
         keep = ~invalid
         return i[keep], j[keep]
 
-    def _diet_restrictions(self, i, j, diet):
+    def _diet_restrictions(self, 
+        i: np.ndarray, 
+        j: np.ndarray, 
+        diet: np.ndarray
+        )-> Tuple[
+            np.ndarray,
+            np.ndarray
+        ]:
+        """
+        :Parameters:
+        - i : Attackers : numpy array
+        - j : Defenders : numpy array
+        - diet : numpy array with diet types of attacking
+        and defending organisms
+        
+        : Returns: Tuple of (i,j)
+        - i : Attacker interactions filtered by diet type : numpy array
+        - j : Defender interactions filtered by diet type : numpy array
+        """
         dt_i, dt_j = diet[i], diet[j]
         invalid = np.zeros_like(i, dtype=bool)
 
@@ -776,7 +810,29 @@ class Organisms:
         keep = ~invalid
         return i[keep], j[keep]
 
-    def _classify_engagement(self, i, j, att, deff, pack):
+    def _classify_engagement(self,
+        i:    np.ndarray,
+        j:    np.ndarray,
+        att:  np.ndarray,
+        deff: np.ndarray,
+        pack: np.ndarray
+    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+        """
+    Classifies engagements between organisms based on attack and defense values, 
+    considering pack behavior.
+
+    :param i: Indices of attackers (np.ndarray)
+    :param j: Indices of defenders (np.ndarray)
+    :param att: Attack values for organisms (np.ndarray)
+    :param deff: Defense values for organisms (np.ndarray)
+    :param pack: Pack behavior indicators (np.ndarray)
+    
+    :returns:
+    - np.ndarray: Mask for host engagements
+    - np.ndarray: Mask for prey engagements
+    - np.ndarray: Net attack values for attackers
+    - np.ndarray: Net attack values for defenders
+    """
         my_net    = att[i] - deff[j]
         their_net = att[j] - deff[i]
 
@@ -793,7 +849,29 @@ class Organisms:
         prey &= (my_net > 0)
         return host, prey, my_net, their_net
 
-    def _apply_damage(self, i, j, host, prey, my_net, their_net, energy):
+
+    def _apply_damage(self, 
+        i:         np.ndarray, 
+        j:         np.ndarray, 
+        host:      np.ndarray, 
+        prey:      np.ndarray, 
+        my_net:    np.ndarray, 
+        their_net: np.ndarray, 
+        energy:    np.ndarray
+        ):
+        """
+        Applies damage to organisms based on host and prey interactions.
+
+        :param i: Indices of attackers (np.ndarray)
+        :param j: Indices of defenders (np.ndarray)
+        :param host: Mask for host engagements (np.ndarray)
+        :param prey: Mask for prey engagements (np.ndarray)
+        :param my_net: Net attack values for attackers (np.ndarray)
+        :param their_net: Net attack values for defenders (np.ndarray)
+        :param energy: Energy values for all organisms (np.ndarray)
+
+        :returns: None (modifies energy array in place)
+        """
         # Hostiles: j attacked i, damage = their_net
         if host.any():
             idx_i = i[host]
@@ -855,9 +933,10 @@ class Organisms:
         return
 
     def increment_p_id_and_c_id(self, 
-        c_org_arr:np.ndarray,  
-        num_spawned:int,
-        p_org_arr:np.ndarray):
+        c_org_arr:   np.ndarray,  
+        num_spawned: int,
+        p_org_arr:   np.ndarray
+        ):
         """
         Increment id's for reproduction and spawning founders.
         May be used for lineage later.
@@ -878,9 +957,9 @@ class Organisms:
             self._next_id = 1
 
 def random_name_generation(
-    num_to_gen: int,
-    min_syllables: int = 2,
-    max_syllables: int = 4
+    num_to_gen:     int,
+    min_syllables:  int = 2,
+    max_syllables:  int = 4
 ) -> np.ndarray:
     """
     Generate `num_to_gen` random species names and return them as a NumPy array.

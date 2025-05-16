@@ -1,5 +1,6 @@
 import numpy as np
 from scipy.spatial import cKDTree
+from scipy.ndimage import map_coordinates
 import random
 from array_ops import *
 from collections import defaultdict
@@ -460,32 +461,41 @@ class Organisms:
         N = coords.shape[0]
         terrain = self._env.get_terrain()
         width, length = self._width, self._length
-        dirs = self._dirs  # shape (4,2)
 
-        # generate neighbor samples: shape (N,4,2)
-        samples = coords[:, None, :] + dirs[None, :, :]
+        # Establish convolution kernel
+        # Define offsets for smooth sampling in a local neighborhood
+        offsets = np.array([[-0.5, -0.5], [-0.5, 0.0], [-0.5, 0.5],
+                            [0.0, -0.5], [0.0, 0.0], [0.0, 0.5],
+                            [0.5, -0.5], [0.5, 0.0], [0.5, 0.5]])
 
-        # map to integer grid indices
-        ix = samples[..., 0].astype(int)
-        iy = samples[..., 1].astype(int)
+        
+        # Apply convolution to smooth terrain gradients
+        # Create sampled coordinates for smooth lookup (N, 9, 2)
+        patches = coords[:, None, :] + offsets[None, :, :]
 
-        # mask out‐of‐bounds
-        valid = (
-            (ix >= 0) & (ix < width) &
-            (iy >= 0) & (iy < length)
-        )  # shape (N,4)
+        # Generate integer grid coordinates
+        ix = np.clip(coords[:, 0].astype(int), 1, width - 2)
+        iy = np.clip(coords[:, 1].astype(int), 1, length - 2)
 
-        # look up terrain, fill invalid with nan
-        tiles = np.full((N, 4), np.nan, dtype=np.float32)
-        tiles[valid] = terrain[iy[valid], ix[valid]]
 
-        # water‐avoidance: push opposite dirs wherever terrain<0
-        mask_water = tiles < 0
-        avoid_water = - (dirs[None, :, :] * mask_water[..., None]).sum(axis=1)
+        # Clip to bounds of the terrain
+        patches[:, :, 0] = np.clip(patches[:, :, 0], 0, width - 1)
+        patches[:, :, 1] = np.clip(patches[:, :, 1], 0, length - 1)
 
-        # land‐avoidance: push opposite dirs wherever terrain>=0
-        mask_land = tiles >= 0
-        avoid_land = - (dirs[None, :, :] * mask_land[..., None]).sum(axis=1)
+        # Use map_coordinates for smooth sampling
+        terrain_values = map_coordinates(terrain, [patches[..., 1].ravel(), patches[..., 0].ravel()], order=1)
+        terrain_values = terrain_values.reshape(N, 9)
+
+        # Compute the gradient vectors for all patches (9 directions)
+        vectors = offsets.astype(np.float32)
+
+        # Avoidance vector calculation for water and land
+        water_mask = terrain_values < 0
+        land_mask = terrain_values >= 0
+
+        # Compute avoidance using vectorized dot products
+        avoid_water = -np.einsum('ijk,ij->ik', vectors[None, :, :], water_mask)
+        avoid_land = -np.einsum('ijk,ij->ik', vectors[None, :, :], land_mask)
 
         return avoid_land, avoid_water
 
@@ -509,14 +519,16 @@ class Organisms:
         coords, neigh_lists = get_coords_and_neighbors(orgs, self._pos_tree)
         avoid_land, avoid_water = self.compute_terrain_avoidance(coords)
 
-        # —––––––– grab items once, outside of any per-organism loop –––––––—
-
-
-        old_coords = coords
-        # map across all organisms
-
-        new_pos = movement_compute(orgs, coords, neigh_lists, self._width, self._length, avoid_land, avoid_water)
-        self.pay_energy_costs(orgs, new_pos, old_coords)
+        # Calculate new positions - currently passes alot of memory outside the class
+        new_pos = movement_compute(
+            orgs, 
+            coords, 
+            neigh_lists, 
+            self._width, 
+            self._length, 
+            avoid_land, 
+            avoid_water)
+        self.pay_energy_costs(orgs, new_pos, coords)
         self.build_spatial_index()
 
     def pay_energy_costs(self,

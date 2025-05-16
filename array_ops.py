@@ -506,10 +506,29 @@ def movement_compute(
     diet_type, vision, attack, defense, pack_flag, 
     species, fly_flag, swim_flag, walk_flag, speed
     ) = grab_move_arrays(organisms)
-
-
     
-    def _compute(orgs, index, pos, neighs, width, length):
+    
+    non_zero_avoid_land = np.argwhere(avoid_land != 0)
+    print("Non-zero elements in avoid_land:")
+    for idx in non_zero_avoid_land:
+        print(f"Index: {tuple(idx)}, Value: {avoid_land[tuple(idx)]}")
+    non_zero_avoid_water = np.argwhere(avoid_water != 0)
+    print("\nNon-zero elements in avoid_water:")
+    for idx in non_zero_avoid_water:
+        print(f"Index: {tuple(idx)}, Value: {avoid_water[tuple(idx)]}")
+        
+        
+    avoidance_vec = np.zeros((organisms.shape[0], 2), dtype=np.float32)
+
+    cannot_fly_swim_mask = (~fly_flag & ~swim_flag)
+    cannot_fly_walk_mask = (~fly_flag & ~walk_flag)
+    
+    # === Apply Avoidance Logic Based on Masks ===
+    # Only apply the terrain avoidance where the mask is True
+    avoidance_vec[cannot_fly_swim_mask] += WATER_PUSH * avoid_water[cannot_fly_swim_mask]
+    avoidance_vec[cannot_fly_walk_mask] += LAND_PUSH * avoid_land[cannot_fly_walk_mask]
+    
+    def _compute(orgs, index, pos, neighs, width, length, avoidance_arr):
         # pull out “my” values once
         my = orgs[index]
         my_diet = my['diet_type']
@@ -517,17 +536,14 @@ def movement_compute(
         my_att = my['attack']
         my_def = my['defense']
         my_spc = my['species']
+        my_fly = my['fly']
         my_pack = pack_flag[index]
-        my_fly = fly_flag[index]
-        my_swim = swim_flag[index]
-        my_walk = walk_flag[index]
         my_speed = speed[index]
         if my_diet == 'Photo':
             my['energy'] += 0.25
             my_def = 0
             my_att = 0
             move_vec = np.zeros(2, dtype=np.float32)
-
             return move_vec
 
         # make neighbors a NumPy array of ints
@@ -546,7 +562,6 @@ def movement_compute(
 
         # — behavioral overrides (pack) —
         if my_pack:
-            steer = np.zeros(2, dtype=np.float32)
 
             # 1) compute net strengths against each neighbor in `valid`
             non_pack_mask = ~pack_flag[valid]       # True for neighbors that are NOT pack mates
@@ -562,34 +577,32 @@ def movement_compute(
             hostiles = valid[host_mask]
             if hostiles.size > 0:
                 center = coords[hostiles].mean(axis=0)
-                steer += (pos - center)
+                move_vec += (pos - center)
             else:
                 prey = valid[prey_mask]
                 if prey.size > 0:
                     center = coords[prey].mean(axis=0)
-                    steer += (center - pos)
+                    move_vec += (center - pos)
                 else:
                     # c) cohesion + gentle separation
                     if pack_mates.size > 0:
                         center = coords[pack_mates].mean(axis=0)
-                        steer += (center - pos)
+                        move_vec += (center - pos)
 
                         dists = coords[pack_mates] - pos
                         norms = np.linalg.norm(dists, axis=1)
                         close = norms < SEPARATION_RADIUS
                         if close.any():
                             repulse = -np.mean(dists[close], axis=0)
-                            steer += repulse * SEPARATION_WEIGHT
+                            move_vec += repulse * SEPARATION_WEIGHT
 
-            # terrain avoidance
-            if not my_swim:
-                steer += WATER_PUSH * avoid_water[index]
-            if not my_walk:
-                steer += LAND_PUSH * avoid_land[index]
+            #print(move_vec, 'pre pack move arr 1111')
+            move_vec += avoidance_arr[index]
+            #print(move_vec, 'post array of pack move 2222')
 
             # normalize & scale by speed
-            norm = np.linalg.norm(steer)
-            step = (steer / norm) * \
+            norm = np.linalg.norm(move_vec)
+            step = (move_vec / norm) * \
                 my_speed if norm > 0 else np.zeros(2, np.float32)
 
             new = pos + step
@@ -625,14 +638,10 @@ def movement_compute(
         if same.size > 0:
             repulse = np.mean(pos - coords[same], axis=0)
             move_vec += CROWD_PUSH * repulse
-
-        # terrain avoidance
-
-        if not my_swim:
-            move_vec += WATER_PUSH * avoid_water[index]
-        if not my_walk:
-            move_vec += LAND_PUSH * avoid_land[index]
-
+        
+        #print(move_vec, 'pre move av array 3333')
+        move_vec += avoidance_arr[index]
+        #print(move_vec, 'post normal move av array 4444')
         # normalize & scale
         norm = np.linalg.norm(move_vec)
         step = (move_vec / norm) * \
@@ -651,7 +660,8 @@ def movement_compute(
                 coords[i], 
                 neighs[i], 
                 width, 
-                length
+                length,
+                avoidance_vec
             ) 
             for i in range(organisms.shape[0])
         ], 

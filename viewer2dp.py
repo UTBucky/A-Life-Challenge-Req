@@ -166,11 +166,12 @@ class Viewer2D:
         """
         Display births, deaths, and average energy of the alive population.
         """
-        alive_mask = (self.env.get_organisms().get_organisms()['energy'] >= 0)
-        alive = self.env.get_organisms().get_organisms()
+        orgs = self.env.get_organisms().get_organisms()
+        alive_mask = (orgs['energy'] >= 0)
+        
         births = self.env.get_total_births()
         deaths = self.env.get_total_deaths()
-        masked = alive['energy'][alive_mask]
+        masked = orgs['energy'][alive_mask]
         avg_energy = np.mean(masked) if masked.size > 0 else 0
 
         birth_text = self.font.render(

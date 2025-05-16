@@ -552,7 +552,7 @@ def get_coords_and_neighbors(
 
     return coords, neigh_lists
 
-
+# Returns new arrays # PACK BEHAVIOR DISABLED FOR NOW
 def movement_compute(
     organisms: np.ndarray,
     coords: np.ndarray, 

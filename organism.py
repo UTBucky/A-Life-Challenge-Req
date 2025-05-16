@@ -506,27 +506,15 @@ class Organisms:
             return
 
         self.apply_terrain_penalties()
-
-        width, length = self._width, self._length
-        coords = np.stack((orgs['x_pos'], orgs['y_pos']), axis=1)
-
-        vision_radii = orgs['vision']
-        neigh_lists = self._pos_tree.query_ball_point(coords, vision_radii, workers=-1)
-
+        coords, neigh_lists = get_coords_and_neighbors(orgs, self._pos_tree)
         avoid_land, avoid_water = self.compute_terrain_avoidance(coords)
 
         # —––––––– grab items once, outside of any per-organism loop –––––––—
-        diet_type = orgs['diet_type']
-        vision = orgs['vision']
-        attack = orgs['attack']
-        defense = orgs['defense']
-        pack_flag = orgs['pack_behavior']
-        species = orgs['species']
-        fly_flag = orgs['fly']
-        swim_flag = orgs['swim']
-        walk_flag = orgs['walk']
-        speed = orgs['speed']
-
+        (
+        diet_type, vision, attack, defense, pack_flag, 
+        species, fly_flag, swim_flag, walk_flag, speed
+        ) = grab_move_arrays(orgs)
+        
         def _compute(i, pos, neighs, width, length):
             # pull out “my” values once
             my = orgs[i]
@@ -664,19 +652,31 @@ class Organisms:
         # map across all organisms
 
         new_pos = np.array([
-            _compute(i, coords[i], neigh_lists[i], width, length)
+            _compute(i, coords[i], neigh_lists[i], self._width, self._length)
             for i in range(N)
         ], dtype=np.float32)
 
-
-        non_photo = orgs['diet_type'] != 'Photo'
-        orgs['x_pos'][non_photo] = new_pos[non_photo, 0]
-        orgs['y_pos'][non_photo] = new_pos[non_photo, 1]
-        dists = np.linalg.norm(new_pos[non_photo] - old_coords[non_photo], axis=1)
-        move_costs = 0.01 * dists * orgs['metabolism_rate'][non_photo]
-        orgs['energy'][non_photo] -= move_costs
-
+        self.pay_energy_costs(orgs, new_pos, old_coords)
         self.build_spatial_index()
+
+    def pay_energy_costs(self,
+        organism_arr: np.ndarray,
+        new_pos_arr: np.ndarray,
+        old_coords_arr: np.ndarray,
+    ):
+        """
+        Function modifies energy of organisms in place.
+        - Energy cost is based on distance (not displacement yet)
+        - Energy cost is based on metabolism_rate
+        - Plants do not pay energy costs from movement
+            - Right now plants also cannot move
+        """
+        non_photo = organism_arr['diet_type'] != 'Photo'
+        organism_arr['x_pos'][non_photo] = new_pos_arr[non_photo, 0]
+        organism_arr['y_pos'][non_photo] = new_pos_arr[non_photo, 1]
+        dists = np.linalg.norm(new_pos_arr[non_photo] - old_coords_arr[non_photo], axis=1)
+        move_costs = 0.01 * dists * organism_arr['metabolism_rate'][non_photo]
+        organism_arr['energy'][non_photo] -= move_costs
 
     def resolve_attacks(self):
         """
@@ -699,9 +699,9 @@ class Organisms:
         walk = orgs['walk']
         x_pos = orgs['x_pos']
         y_pos = orgs['y_pos']
-        terrain = self._env.get_terrain()
         energy = orgs['energy']
 
+        terrain = self._env.get_terrain()
         # --- 1) Ensure KD-Tree is fresh ---
         if self._pos_tree is None:
             self.build_spatial_index()

@@ -1,4 +1,5 @@
 import numpy as np
+from scipy.spatial import cKDTree
 from typing import Tuple, Dict
 
 #In-Place mutator
@@ -423,3 +424,62 @@ def calculate_valid_founder_terrain(
     valid_count = positions.shape[0]
 
     return positions, valid_count
+
+
+def grab_move_arrays(
+    organisms:np.ndarray
+    ) -> Tuple[
+        np.ndarray , np.ndarray , np.ndarray ,
+        np.ndarray , np.ndarray , np.ndarray ,
+        np.ndarray , np.ndarray , np.ndarray ,
+        np.ndarray
+    ]:
+    """
+    Grabs the necessary array items from the global organisms
+    array. Compartmentalized into array_ops.py for readability.
+    
+    :Parameters:
+    - organisms: array of organism_dtype objects, (np.ndarray)
+
+    :Returns:
+    diet_type - np.ndarray
+    vision    - np.ndarray
+    attack    - np.ndarray 
+    defense   - np.ndarray 
+    pack_flag - np.ndarray 
+    species   - np.ndarray 
+    fly_flag  - np.ndarray
+    walk_flag - np.ndarray
+    speed     - np.ndarray
+    """
+    diet_type = organisms['diet_type']
+    vision = organisms['vision']
+    attack = organisms['attack']
+    defense = organisms['defense']
+    pack_flag = organisms['pack_behavior']
+    species = organisms['species']
+    fly_flag = organisms['fly']
+    swim_flag = organisms['swim']
+    walk_flag = organisms['walk']
+    speed = organisms['speed']
+
+    return (diet_type, vision, attack, defense, pack_flag,
+            species, fly_flag, swim_flag, walk_flag, speed)
+
+
+def get_coords_and_neighbors( 
+    orgs: np.ndarray,
+    kdTree
+    ) -> Tuple[np.ndarray, np.ndarray]:
+    """
+    Parameters:
+    :param orgs: Pass in the global organisms array
+    Returns:
+    :param coords: (n,2) dimensional numpy array of organism coordinates
+    :param neighbors: List of Lists of neighbors of organisms, based on cK-DTree query
+    """
+    coords = np.stack((orgs['x_pos'], orgs['y_pos']), axis=1)
+    vision_radii = orgs['vision']
+    neigh_lists = kdTree.query_ball_point(coords, vision_radii, workers=-1)
+
+    return coords, neigh_lists

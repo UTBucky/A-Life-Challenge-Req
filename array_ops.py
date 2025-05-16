@@ -603,12 +603,114 @@ def movement_compute(
         mask_valid = (neighs != index) & (vision[neighs] >= my_cam)
         valid = neighs[mask_valid]
 
+        # allocate movement accumulator
+        move_vec = np.zeros(2, dtype=np.float32)
+
+        # — social steering (non-pack) —
+        if my_fly:
+            pool = valid[fly_flag[valid]]
+        else:
+            pool = valid
+
+        # assume `pool` is already valid subset
+        my_net_pool    = my_att - defense[pool]
+        their_net_pool = attack[pool] - my_def
+
+        host_mask = their_net_pool > my_net_pool
+        prey_mask = my_net_pool    > their_net_pool
+
+        hostiles = pool[host_mask]
+        prey     = pool[prey_mask]
+
+        if hostiles.size > 0:
+            move_vec += (pos - coords[hostiles]).mean(axis=0)
+        if prey.size > 0:
+            move_vec += (coords[prey] - pos).mean(axis=0)
+
+        # crowd repulsion
+        CROWD_PUSH = 0.001 * my_speed
+        same_mask = species[valid] == my_spc
+        same = valid[same_mask]
+        if same.size > 0:
+            repulse = np.mean(pos - coords[same], axis=0)
+            move_vec += CROWD_PUSH * repulse
+        
+        #print(move_vec, 'pre move av array 3333')
+        move_vec += avoidance_arr[index]
+        #print(move_vec, 'post normal move av array 4444')
+        # normalize & scale
+        norm = np.linalg.norm(move_vec)
+        step = (move_vec / norm) * \
+            my_speed if norm > 0 else np.zeros(2, np.float32)
+
+        new = pos + step
+        new[0] = np.clip(new[0], 0, width - 1)
+        new[1] = np.clip(new[1], 0, length - 1)
+        return new
+
+    return np.array(
+        [
+            _compute(
+                organisms, 
+                i, 
+                coords[i], 
+                neighs[i], 
+                width, 
+                length,
+                avoidance_vec
+            ) 
+            for i in range(organisms.shape[0])
+        ], 
+        dtype=np.float32
+    )
+
+def pack_movement_compute(
+    organisms: np.ndarray,
+    coords: np.ndarray, 
+    neighs: np.ndarray, 
+    width:  int, 
+    length: int,
+    avoid_land: np.ndarray, 
+    avoid_water: np.ndarray
+    ):
+    (
+    diet_type, vision, attack, defense, pack_flag, 
+    species, fly_flag, swim_flag, walk_flag, speed
+    ) = grab_move_arrays(organisms)
+
+    avoidance_vec = np.zeros((organisms.shape[0], 2), dtype=np.float32)
+
+    cannot_fly_swim_mask = (~fly_flag & ~swim_flag)
+    cannot_fly_walk_mask = (~fly_flag & ~walk_flag)
+    
+    # === Apply Avoidance Logic Based on Masks ===
+    # Only apply the terrain avoidance where the mask is True
+    avoidance_vec[cannot_fly_swim_mask] += WATER_PUSH * avoid_water[cannot_fly_swim_mask]
+    avoidance_vec[cannot_fly_walk_mask] += LAND_PUSH * avoid_land[cannot_fly_walk_mask]
+
+    def move_pack_behavior(orgs, index, pos, neighs, width, length, avoidance_arr):
+        my = orgs[index]
+        my_diet = my['diet_type']
+        my_cam = my['camouflage']
+        my_att = my['attack']
+        my_def = my['defense']
+        my_spc = my['species']
+        my_fly = my['fly']
+        my_pack = pack_flag[index]
+        my_speed = speed[index]
+        if my_diet == 'Photo':
+            my_def = 0
+            my_att = 0
+            move_vec = np.zeros(2, dtype=np.float32)
+            return move_vec
+
+        neighs = np.asarray(neighs, dtype=int)
+        mask_valid = (neighs != index) & (vision[neighs] >= my_cam)
+        valid = neighs[mask_valid]
+
         # 2) pack_mates if pack_behavior array isn’t empty
         if pack_flag.shape[0] > 0:
             pack_mates = valid[pack_flag[valid]]
-
-        # allocate movement accumulator
-        move_vec = np.zeros(2, dtype=np.float32)
 
         # — behavioral overrides (pack) —
         if my_pack:
@@ -659,53 +761,11 @@ def movement_compute(
             new[0] = np.clip(new[0], 0, width - 1)
             new[1] = np.clip(new[1], 0, length - 1)
             return new
-
-        # — social steering (non-pack) —
-        if my_fly:
-            pool = valid[fly_flag[valid]]
-        else:
-            pool = valid
-
-        # assume `pool` is already valid subset
-        my_net_pool    = my_att - defense[pool]
-        their_net_pool = attack[pool] - my_def
-
-        host_mask = their_net_pool > my_net_pool
-        prey_mask = my_net_pool    > their_net_pool
-
-        hostiles = pool[host_mask]
-        prey     = pool[prey_mask]
-
-        if hostiles.size > 0:
-            move_vec += (pos - coords[hostiles]).mean(axis=0)
-        if prey.size > 0:
-            move_vec += (coords[prey] - pos).mean(axis=0)
-
-        # crowd repulsion
-        CROWD_PUSH = 0.1 * my_speed
-        same_mask = species[valid] == my_spc
-        same = valid[same_mask]
-        if same.size > 0:
-            repulse = np.mean(pos - coords[same], axis=0)
-            move_vec += CROWD_PUSH * repulse
-        
-        #print(move_vec, 'pre move av array 3333')
-        move_vec += avoidance_arr[index]
-        #print(move_vec, 'post normal move av array 4444')
-        # normalize & scale
-        norm = np.linalg.norm(move_vec)
-        step = (move_vec / norm) * \
-            my_speed if norm > 0 else np.zeros(2, np.float32)
-
-        new = pos + step
-        new[0] = np.clip(new[0], 0, width - 1)
-        new[1] = np.clip(new[1], 0, length - 1)
-        return new
-
+    
     return np.array(
         [
-            _compute(
-                organisms, 
+            move_pack_behavior(
+                organisms[pack_flag], 
                 i, 
                 coords[i], 
                 neighs[i], 

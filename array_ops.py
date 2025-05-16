@@ -117,6 +117,8 @@ def mutate_offspring(
     flip_mask,
     gene_pool,
     m) -> np.ndarray:
+
+    # ===================== Continuous Genes =====================
     offspring['size'][flip_mask]               = np.random.uniform(
                                                     low=gene_pool['size'][0],
                                                     high=gene_pool['size'][1],
@@ -159,16 +161,40 @@ def mutate_offspring(
                                                     size=m
                                                 ).astype(np.float32)
 
-    offspring['diet_type'][flip_mask]          = np.random.choice(
-                                                    gene_pool['diet_type'],
-                                                    size=m
-                                                ).astype('U15')
-
     offspring['fertility_rate'][flip_mask]     = np.random.uniform(
                                                     low=gene_pool['fertility_rate'][0],
                                                     high=gene_pool['fertility_rate'][1],
                                                     size=m
                                                 ).astype(np.float32)
+
+    offspring['speed'][flip_mask]              = np.random.uniform(
+                                                    low=gene_pool['speed'][0],
+                                                    high=gene_pool['speed'][1],
+                                                    size=m
+                                                ).astype(np.float32)
+
+
+    # ---------------- Behavioral Genes ----------------
+    pack_behavior_prob_arr = np.array([0.99, 0.01])       # False, True
+    symbiotic_prob_arr = np.array([0.5, 0.5])           # False, True
+
+    # ---------------- Locomotion Genes ----------------
+    swim_prob_arr = np.array([0.01, 0.99])              # Mostly don't swim, small chance to swim
+    fly_prob_arr = np.array([0.999, 0.001])               # Mostly don't fly, small chance to fly
+    walk_prob_arr = np.array([0.99, 0.01])                # Mostly walk, small chance not to
+
+    # ---------------- Diet Type ----------------
+    diet_type_prob_arr = np.array([0.50, 0.20, 0.20, 0.05, 0.05])              # Herb, Omni, Carn, Photo, Parasite
+
+    # ---------------- Reproduction Type ----------------
+    reproduction_type_prob_arr = np.array([0.5, 0.5])  # Sexual vs Asexual
+
+    # ===================== Discrete Genes =====================
+    offspring['diet_type'][flip_mask]          = np.random.choice(
+                                                    gene_pool['diet_type'],
+                                                    size=m,
+                                                    p=diet_type_prob_arr
+                                                ).astype('U15')
 
     offspring['offspring_count'][flip_mask]    = np.random.randint(
                                                     gene_pool['offspring_count'][0],
@@ -178,39 +204,39 @@ def mutate_offspring(
 
     offspring['reproduction_type'][flip_mask]  = np.random.choice(
                                                     gene_pool['reproduction_type'],
-                                                    size=m
+                                                    size=m,
+                                                    p=reproduction_type_prob_arr
                                                 ).astype('U15')
 
     offspring['pack_behavior'][flip_mask]      = np.random.choice(
                                                     gene_pool['pack_behavior'],
-                                                    size=m
+                                                    size=m,
+                                                    p=pack_behavior_prob_arr
                                                 ).astype(np.bool_)
 
     offspring['symbiotic'][flip_mask]          = np.random.choice(
                                                     gene_pool['symbiotic'],
-                                                    size=m
+                                                    size=m,
+                                                    p=symbiotic_prob_arr
                                                 ).astype(np.bool_)
 
     offspring['swim'][flip_mask]               = np.random.choice(
                                                     gene_pool['swim'],
-                                                    size=m
+                                                    size=m,
+                                                    p=swim_prob_arr
                                                 ).astype(np.bool_)
 
     offspring['walk'][flip_mask]               = np.random.choice(
                                                     gene_pool['walk'],
-                                                    size=m
+                                                    size=m,
+                                                    p=walk_prob_arr
                                                 ).astype(np.bool_)
 
     offspring['fly'][flip_mask]                = np.random.choice(
                                                     gene_pool['fly'],
-                                                    size=m
+                                                    size=m,
+                                                    p=fly_prob_arr
                                                 ).astype(np.bool_)
-
-    offspring['speed'][flip_mask]              = np.random.uniform(
-                                                    low=gene_pool['speed'][0],
-                                                    high=gene_pool['speed'][1],
-                                                    size=m
-                                                ).astype(np.float32)
 
 # Returns new arrays
 def initialize_default_traits(
@@ -336,11 +362,11 @@ def initialize_random_traits(
 
     # diet choice with fixed probabilities
     # Herb, Omni, Carn, Photo, Parasite
-    p = [0.50, 0.20, 0.20, 0.05, 0.05]
+    diet_probs = [0.50, 0.20, 0.20, 0.05, 0.05]
     diet_type_arr               = np.random.choice(
                                         gene_pool['diet_type'],
                                         size=n,
-                                        p=p
+                                        p=diet_probs
                                 ).astype('U15')
 
 
@@ -372,21 +398,21 @@ def initialize_random_traits(
                                 ).astype(bool)
 
     # ---------------- Locomotion Genes ----------------
-    swim_probs = [0.10, 0.90]
+    swim_probs = [0.01, 0.99]
     swim_arr                    = np.random.choice(
                                       gene_pool['swim'],
                                       size=n,
                                       p=swim_probs
                                 ).astype(bool)
 
-    walk_probs = [0.90, 0.10]    
+    walk_probs = [0.99, 0.01]    
     walk_arr                    = np.random.choice(
                                       gene_pool['walk'],
                                       size=n,
                                       p=walk_probs
                                 ).astype(bool)
 
-    fly_probs = [0.99,0.01]
+    fly_probs = [0.999,0.001]
     fly_arr                     = np.random.choice(
                                       gene_pool['fly'],
                                       size=n,

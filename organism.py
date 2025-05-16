@@ -468,15 +468,11 @@ class Organisms:
                             [0.0, -0.5], [0.0, 0.0], [0.0, 0.5],
                             [0.5, -0.5], [0.5, 0.0], [0.5, 0.5]])
 
+
         
         # Apply convolution to smooth terrain gradients
         # Create sampled coordinates for smooth lookup (N, 9, 2)
         patches = coords[:, None, :] + offsets[None, :, :]
-
-        # Generate integer grid coordinates
-        ix = np.clip(coords[:, 0].astype(int), 1, width - 2)
-        iy = np.clip(coords[:, 1].astype(int), 1, length - 2)
-
 
         # Clip to bounds of the terrain
         patches[:, :, 0] = np.clip(patches[:, :, 0], 0, width - 1)
@@ -487,15 +483,26 @@ class Organisms:
         terrain_values = terrain_values.reshape(N, 9)
 
         # Compute the gradient vectors for all patches (9 directions)
-        vectors = offsets.astype(np.float32)
+        grad_x, grad_y = np.gradient(terrain)
 
         # Avoidance vector calculation for water and land
         water_mask = terrain_values < 0
         land_mask = terrain_values >= 0
 
         # Compute avoidance using vectorized dot products
-        avoid_water = -np.einsum('ijk,ij->ik', vectors[None, :, :], water_mask)
-        avoid_land = -np.einsum('ijk,ij->ik', vectors[None, :, :], land_mask)
+        sampled_grad_x = map_coordinates(grad_x, [coords[:, 1], coords[:, 0]], order=1)
+        sampled_grad_y = map_coordinates(grad_y, [coords[:, 1], coords[:, 0]], order=1)
+        
+        # Compute gradient magnitudes
+        gradient_magnitudes = np.hypot(sampled_grad_x, sampled_grad_y)
+
+        # Compute the directional vectors from the sampled gradients
+        normalized_gradients = np.stack((sampled_grad_x, sampled_grad_y), axis=1)
+        normalized_gradients /= np.linalg.norm(normalized_gradients, axis=1, keepdims=True) + 1e-8
+
+        # Calculate weighted avoidance based on gradient magnitude
+        avoid_water = -normalized_gradients * gradient_magnitudes[:, None] * water_mask.sum(axis=1)[:, None]
+        avoid_land = -normalized_gradients * gradient_magnitudes[:, None] * land_mask.sum(axis=1)[:, None]
 
         return avoid_land, avoid_water
 

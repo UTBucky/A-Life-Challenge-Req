@@ -3,8 +3,8 @@ from scipy.spatial import cKDTree
 from typing import Tuple, Dict
 
 # Terrain avoidance constants
-WATER_PUSH = 5.0
-LAND_PUSH = 5.0
+WATER_PUSH = 1000.0
+LAND_PUSH = 1000.0
 
 # Pack behavior constants
 SEPARATION_WEIGHT = 10
@@ -506,18 +506,7 @@ def movement_compute(
     diet_type, vision, attack, defense, pack_flag, 
     species, fly_flag, swim_flag, walk_flag, speed
     ) = grab_move_arrays(organisms)
-    
-    
-    non_zero_avoid_land = np.argwhere(avoid_land != 0)
-    print("Non-zero elements in avoid_land:")
-    for idx in non_zero_avoid_land:
-        print(f"Index: {tuple(idx)}, Value: {avoid_land[tuple(idx)]}")
-    non_zero_avoid_water = np.argwhere(avoid_water != 0)
-    print("\nNon-zero elements in avoid_water:")
-    for idx in non_zero_avoid_water:
-        print(f"Index: {tuple(idx)}, Value: {avoid_water[tuple(idx)]}")
-        
-        
+
     avoidance_vec = np.zeros((organisms.shape[0], 2), dtype=np.float32)
 
     cannot_fly_swim_mask = (~fly_flag & ~swim_flag)
@@ -632,7 +621,7 @@ def movement_compute(
             move_vec += (coords[prey] - pos).mean(axis=0)
 
         # crowd repulsion
-        CROWD_PUSH = 0.5 * my_speed
+        CROWD_PUSH = 0.1 * my_speed
         same_mask = species[valid] == my_spc
         same = valid[same_mask]
         if same.size > 0:

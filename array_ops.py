@@ -2,6 +2,14 @@ import numpy as np
 from scipy.spatial import cKDTree
 from typing import Tuple, Dict
 
+# Terrain avoidance constants
+WATER_PUSH = 5.0
+LAND_PUSH = 5.0
+
+# Pack behavior constants
+SEPARATION_WEIGHT = 10
+SEPARATION_RADIUS = 5
+
 #In-Place mutator
 def copy_valid_count( 
     spawned:                    np.ndarray,
@@ -425,7 +433,7 @@ def calculate_valid_founder_terrain(
 
     return positions, valid_count
 
-
+# Returns new arrays
 def grab_move_arrays(
     organisms:np.ndarray
     ) -> Tuple[
@@ -466,8 +474,8 @@ def grab_move_arrays(
     return (diet_type, vision, attack, defense, pack_flag,
             species, fly_flag, swim_flag, walk_flag, speed)
 
-
-def get_coords_and_neighbors( 
+# Returns new arrays
+def get_coords_and_neighbors(                              
     orgs: np.ndarray,
     kdTree
     ) -> Tuple[np.ndarray, np.ndarray]:
@@ -475,11 +483,177 @@ def get_coords_and_neighbors(
     Parameters:
     :param orgs: Pass in the global organisms array
     Returns:
-    :param coords: (n,2) dimensional numpy array of organism coordinates
-    :param neighbors: List of Lists of neighbors of organisms, based on cK-DTree query
+    :coords: (n,2) dimensional numpy array of organism coordinates
+    :neighbors: List of Lists of neighbors of organisms, based on cK-DTree query
     """
     coords = np.stack((orgs['x_pos'], orgs['y_pos']), axis=1)
     vision_radii = orgs['vision']
     neigh_lists = kdTree.query_ball_point(coords, vision_radii, workers=-1)
 
     return coords, neigh_lists
+
+
+def movement_compute(
+    organisms: np.ndarray,
+    coords: np.ndarray, 
+    neighs: np.ndarray, 
+    width:  int, 
+    length: int,
+    avoid_land: np.ndarray, 
+    avoid_water: np.ndarray
+    ):
+    (
+    diet_type, vision, attack, defense, pack_flag, 
+    species, fly_flag, swim_flag, walk_flag, speed
+    ) = grab_move_arrays(organisms)
+
+
+    
+    def _compute(orgs, index, pos, neighs, width, length):
+        # pull out “my” values once
+        my = orgs[index]
+        my_diet = my['diet_type']
+        my_cam = my['camouflage']
+        my_att = my['attack']
+        my_def = my['defense']
+        my_spc = my['species']
+        my_pack = pack_flag[index]
+        my_fly = fly_flag[index]
+        my_swim = swim_flag[index]
+        my_walk = walk_flag[index]
+        my_speed = speed[index]
+        if my_diet == 'Photo':
+            my['energy'] += 0.25
+            my_def = 0
+            my_att = 0
+            move_vec = np.zeros(2, dtype=np.float32)
+
+            return move_vec
+
+        # make neighbors a NumPy array of ints
+        neighs = np.asarray(neighs, dtype=int)
+
+        # 1) camouflage filter
+        mask_valid = (neighs != index) & (vision[neighs] >= my_cam)
+        valid = neighs[mask_valid]
+
+        # 2) pack_mates if pack_behavior array isn’t empty
+        if pack_flag.shape[0] > 0:
+            pack_mates = valid[pack_flag[valid]]
+
+        # allocate movement accumulator
+        move_vec = np.zeros(2, dtype=np.float32)
+
+        # — behavioral overrides (pack) —
+        if my_pack:
+            steer = np.zeros(2, dtype=np.float32)
+
+            # 1) compute net strengths against each neighbor in `valid`
+            non_pack_mask = ~pack_flag[valid]       # True for neighbors that are NOT pack mates
+
+            my_net    = my_att - defense[valid]     # our attack minus their defense
+            their_net = attack[valid] - my_def      # their attack minus our defense
+
+            # now require non-pack AND the appropriate net comparison
+            host_mask = non_pack_mask & (their_net > my_net)     # if their net > our net → hostile
+            prey_mask = non_pack_mask & (my_net    > their_net)  # if our net > their net → prey
+
+
+            hostiles = valid[host_mask]
+            if hostiles.size > 0:
+                center = coords[hostiles].mean(axis=0)
+                steer += (pos - center)
+            else:
+                prey = valid[prey_mask]
+                if prey.size > 0:
+                    center = coords[prey].mean(axis=0)
+                    steer += (center - pos)
+                else:
+                    # c) cohesion + gentle separation
+                    if pack_mates.size > 0:
+                        center = coords[pack_mates].mean(axis=0)
+                        steer += (center - pos)
+
+                        dists = coords[pack_mates] - pos
+                        norms = np.linalg.norm(dists, axis=1)
+                        close = norms < SEPARATION_RADIUS
+                        if close.any():
+                            repulse = -np.mean(dists[close], axis=0)
+                            steer += repulse * SEPARATION_WEIGHT
+
+            # terrain avoidance
+            if not my_swim:
+                steer += WATER_PUSH * avoid_water[index]
+            if not my_walk:
+                steer += LAND_PUSH * avoid_land[index]
+
+            # normalize & scale by speed
+            norm = np.linalg.norm(steer)
+            step = (steer / norm) * \
+                my_speed if norm > 0 else np.zeros(2, np.float32)
+
+            new = pos + step
+            new[0] = np.clip(new[0], 0, width - 1)
+            new[1] = np.clip(new[1], 0, length - 1)
+            return new
+
+        # — social steering (non-pack) —
+        if my_fly:
+            pool = valid[fly_flag[valid]]
+        else:
+            pool = valid
+
+        # assume `pool` is already valid subset
+        my_net_pool    = my_att - defense[pool]
+        their_net_pool = attack[pool] - my_def
+
+        host_mask = their_net_pool > my_net_pool
+        prey_mask = my_net_pool    > their_net_pool
+
+        hostiles = pool[host_mask]
+        prey     = pool[prey_mask]
+
+        if hostiles.size > 0:
+            move_vec += (pos - coords[hostiles]).mean(axis=0)
+        if prey.size > 0:
+            move_vec += (coords[prey] - pos).mean(axis=0)
+
+        # crowd repulsion
+        CROWD_PUSH = 0.5 * my_speed
+        same_mask = species[valid] == my_spc
+        same = valid[same_mask]
+        if same.size > 0:
+            repulse = np.mean(pos - coords[same], axis=0)
+            move_vec += CROWD_PUSH * repulse
+
+        # terrain avoidance
+
+        if not my_swim:
+            move_vec += WATER_PUSH * avoid_water[index]
+        if not my_walk:
+            move_vec += LAND_PUSH * avoid_land[index]
+
+        # normalize & scale
+        norm = np.linalg.norm(move_vec)
+        step = (move_vec / norm) * \
+            my_speed if norm > 0 else np.zeros(2, np.float32)
+
+        new = pos + step
+        new[0] = np.clip(new[0], 0, width - 1)
+        new[1] = np.clip(new[1], 0, length - 1)
+        return new
+
+    return np.array(
+        [
+            _compute(
+                organisms, 
+                i, 
+                coords[i], 
+                neighs[i], 
+                width, 
+                length
+            ) 
+            for i in range(organisms.shape[0])
+        ], 
+        dtype=np.float32
+    )

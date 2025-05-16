@@ -1,5 +1,6 @@
 import numpy as np
 from scipy.spatial import cKDTree
+from scipy.ndimage import distance_transform_edt
 from scipy.ndimage import map_coordinates
 import random
 from array_ops import *
@@ -442,67 +443,61 @@ class Organisms:
         penalty = (swim_only & land_mask) | (walk_only & ~land_mask)
 
         # subtract 0.1 * metabolism_rate for each violation
-        orgs['energy'][penalty] -= 0.1 * orgs['metabolism_rate'][penalty]
+        orgs['energy'][penalty] -= 3 * orgs['metabolism_rate'][penalty]
 
-    def compute_terrain_avoidance(self, 
-        coords: np.ndarray
-        ) -> Tuple[
-            np.ndarray,
-            np.ndarray
-        ]:
-        """
-        Given an (N,2) array of positions, compute per‐organism
-        avoidance vectors for water and land based on the 4‐neighborhood.
-
-        Returns:
-        - avoid_land  : np.ndarray of shape (N,2)
-        - avoid_water : np.ndarray of shape (N,2)
-        """
+    def compute_terrain_avoidance(self, coords: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
         N = coords.shape[0]
+        w, h = self._env.get_terrain().shape[1], self._env.get_terrain().shape[0]
         terrain = self._env.get_terrain()
-        width, length = self._width, self._length
-
-        # Establish convolution kernel
-        # Define offsets for smooth sampling in a local neighborhood
+        # 9‐neighbor offsets
         offsets = np.array([[-0.5, -0.5], [-0.5, 0.0], [-0.5, 0.5],
-                            [0.0, -0.5], [0.0, 0.0], [0.0, 0.5],
-                            [0.5, -0.5], [0.5, 0.0], [0.5, 0.5]])
+                            [ 0.0, -0.5], [ 0.0, 0.0], [ 0.0, 0.5],
+                            [ 0.5, -0.5], [ 0.5, 0.0], [ 0.5, 0.5]])
 
-
-        
-        # Apply convolution to smooth terrain gradients
-        # Create sampled coordinates for smooth lookup (N, 9, 2)
+        # sample positions & clip
         patches = coords[:, None, :] + offsets[None, :, :]
+        patches[...,0] = np.clip(patches[...,0], 0, w-1)
+        patches[...,1] = np.clip(patches[...,1], 0, h-1)
 
-        # Clip to bounds of the terrain
-        patches[:, :, 0] = np.clip(patches[:, :, 0], 0, width - 1)
-        patches[:, :, 1] = np.clip(patches[:, :, 1], 0, length - 1)
+        # sample terrain to build masks
+        tv = map_coordinates(terrain,
+                             [patches[...,1].ravel(), patches[...,0].ravel()],
+                             order=1).reshape(N,9)
+        water_mask = (tv < 0)        # (N,9)
+        land_mask  = ~water_mask     # (N,9)
 
-        # Use map_coordinates for smooth sampling
-        terrain_values = map_coordinates(terrain, [patches[..., 1].ravel(), patches[..., 0].ravel()], order=1)
-        terrain_values = terrain_values.reshape(N, 9)
+        # build raw direction vectors
+        deltas = patches - coords[:,None,:]    # (N,9,2)
+        raw_water = -(deltas * water_mask[...,None]).sum(axis=1)  # (N,2)
+        raw_land  = -(deltas * land_mask[...,None]).sum(axis=1)   # (N,2)
 
-        # Compute the gradient vectors for all patches (9 directions)
-        grad_x, grad_y = np.gradient(terrain)
 
-        # Avoidance vector calculation for water and land
-        water_mask = terrain_values < 0
-        land_mask = terrain_values >= 0
+        dist_to_water = distance_transform_edt(~water_mask)
+        dist_to_land  = distance_transform_edt( land_mask)
 
-        # Compute avoidance using vectorized dot products
-        sampled_grad_x = map_coordinates(grad_x, [coords[:, 1], coords[:, 0]], order=1)
-        sampled_grad_y = map_coordinates(grad_y, [coords[:, 1], coords[:, 0]], order=1)
-        
-        # Compute gradient magnitudes
-        gradient_magnitudes = np.hypot(sampled_grad_x, sampled_grad_y)
+        # normalize directions (avoid div0)
+        def unit(v):
+            norm = np.linalg.norm(v, axis=1, keepdims=True) + 1e-8
+            return v / norm
 
-        # Compute the directional vectors from the sampled gradients
-        normalized_gradients = np.stack((sampled_grad_x, sampled_grad_y), axis=1)
-        normalized_gradients /= np.linalg.norm(normalized_gradients, axis=1, keepdims=True) + 1e-8
+        u_water = unit(raw_water)
+        u_land  = unit(raw_land)
 
-        # Calculate weighted avoidance based on gradient magnitude
-        avoid_water = -normalized_gradients * gradient_magnitudes[:, None] * water_mask.sum(axis=1)[:, None]
-        avoid_land = -normalized_gradients * gradient_magnitudes[:, None] * land_mask.sum(axis=1)[:, None]
+        # sample distance‐to‐forbidden‐terrain
+        d_water = map_coordinates(dist_to_water, [coords[:,1], coords[:,0]], order=1)
+        d_land  = map_coordinates(dist_to_land,  [coords[:,1], coords[:,0]], order=1)
+
+        # magnitude scaling: asymptotic to F_max
+        F_max = 1000.0
+        K     = 500.0   # so K / 0.5 == 1000
+        eps   = 1e-3
+
+        mag_water = np.minimum(F_max, K / (d_water + eps))  # (N,)
+        mag_land  = np.minimum(F_max, K / (d_land  + eps))  # (N,)
+
+        # final forces
+        avoid_water = u_water * mag_water[:,None]
+        avoid_land  = u_land  * mag_land [:,None]
 
         return avoid_land, avoid_water
 

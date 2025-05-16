@@ -3,12 +3,12 @@ from scipy.spatial import cKDTree
 from typing import Tuple, Dict
 
 # Terrain avoidance constants
-WATER_PUSH = 10000.0
-LAND_PUSH = 10000.0
+WATER_PUSH = 1.0
+LAND_PUSH = 1.0
 
 # Pack behavior constants
-SEPARATION_WEIGHT = 10
-SEPARATION_RADIUS = 5
+SEPARATION_WEIGHT = 50
+SEPARATION_RADIUS = 20
 
 #In-Place mutator
 def copy_valid_count( 
@@ -184,7 +184,7 @@ def mutate_offspring(
     walk_prob_arr = np.array([0.99, 0.01])                # Mostly walk, small chance not to
 
     # ---------------- Diet Type ----------------
-    diet_type_prob_arr = np.array([0.51, 0.21, 0.21, 0.01, 0.06])              # Herb, Omni, Carn, Photo, Parasite
+    diet_type_prob_arr = np.array([0.50, 0.20, 0.20, 0.05, 0.05])              # Herb, Omni, Carn, Photo, Parasite
 
     # ---------------- Reproduction Type ----------------
     reproduction_type_prob_arr = np.array([0.5, 0.5])  # Sexual vs Asexual
@@ -362,7 +362,7 @@ def initialize_random_traits(
 
     # diet choice with fixed probabilities
     # Herb, Omni, Carn, Photo, Parasite
-    diet_probs = [0.50, 0.20, 0.254, 0.001, 0.045]
+    diet_probs = [0.50, 0.20, 0.20, 0.05, 0.05]
     diet_type_arr               = np.random.choice(
                                         gene_pool['diet_type'],
                                         size=n,

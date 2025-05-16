@@ -3,8 +3,8 @@ from scipy.spatial import cKDTree
 from typing import Tuple, Dict
 
 # Terrain avoidance constants
-WATER_PUSH = 1000.0
-LAND_PUSH = 1000.0
+WATER_PUSH = 10000.0
+LAND_PUSH = 10000.0
 
 # Pack behavior constants
 SEPARATION_WEIGHT = 10
@@ -119,57 +119,57 @@ def mutate_offspring(
     m) -> np.ndarray:
 
     # ===================== Continuous Genes =====================
-    offspring['size'][flip_mask]               = np.random.uniform(
-                                                    low=gene_pool['size'][0],
-                                                    high=gene_pool['size'][1],
+    offspring['size'][flip_mask]               += np.random.uniform(
+                                                    low=-0.1,
+                                                    high=0.1,
                                                     size=m
                                                 ).astype(np.float32)
 
-    offspring['camouflage'][flip_mask]         = np.random.uniform(
-                                                    low=gene_pool['camouflage'][0],
-                                                    high=gene_pool['camouflage'][1],
+    offspring['camouflage'][flip_mask]         += np.random.uniform(
+                                                    low=1,
+                                                    high=2,
                                                     size=m
                                                 ).astype(np.float32)
 
-    offspring['defense'][flip_mask]            = np.random.uniform(
-                                                    low=gene_pool['defense'][0],
-                                                    high=gene_pool['defense'][1],
+    offspring['defense'][flip_mask]            += np.random.uniform(
+                                                    low=-0.1,
+                                                    high=0.3,
                                                     size=m
                                                 ).astype(np.float32)
 
-    offspring['attack'][flip_mask]             = np.random.uniform(
-                                                    low=gene_pool['attack'][0],
-                                                    high=gene_pool['attack'][1],
+    offspring['attack'][flip_mask]             += np.random.uniform(
+                                                    low=-0.1,
+                                                    high=0.5,
                                                     size=m
                                                 ).astype(np.float32)
 
-    offspring['vision'][flip_mask]             = np.random.uniform(
-                                                    low=gene_pool['vision'][0],
-                                                    high=gene_pool['vision'][1],
+    offspring['vision'][flip_mask]             += np.random.uniform(
+                                                    low=-2,
+                                                    high=2,
                                                     size=m
                                                 ).astype(np.float32)
 
-    offspring['metabolism_rate'][flip_mask]    = np.random.uniform(
-                                                    low=gene_pool['metabolism_rate'][0],
-                                                    high=gene_pool['metabolism_rate'][1],
+    offspring['metabolism_rate'][flip_mask]    += np.random.uniform(
+                                                    low=-0.1,
+                                                    high=0.2,
                                                     size=m
                                                 ).astype(np.float32)
 
-    offspring['nutrient_efficiency'][flip_mask]= np.random.uniform(
-                                                    low=gene_pool['nutrient_efficiency'][0],
-                                                    high=gene_pool['nutrient_efficiency'][1],
+    offspring['nutrient_efficiency'][flip_mask]+= np.random.uniform(
+                                                    low=-0.1,
+                                                    high=0.2,
                                                     size=m
                                                 ).astype(np.float32)
 
-    offspring['fertility_rate'][flip_mask]     = np.random.uniform(
-                                                    low=gene_pool['fertility_rate'][0],
-                                                    high=gene_pool['fertility_rate'][1],
+    offspring['fertility_rate'][flip_mask]     += np.random.uniform(
+                                                    low=-0.1,
+                                                    high=0.2,
                                                     size=m
                                                 ).astype(np.float32)
 
-    offspring['speed'][flip_mask]              = np.random.uniform(
-                                                    low=gene_pool['speed'][0],
-                                                    high=gene_pool['speed'][1],
+    offspring['speed'][flip_mask]              += np.random.uniform(
+                                                    low=-0.1,
+                                                    high=0.2,
                                                     size=m
                                                 ).astype(np.float32)
 
@@ -184,7 +184,7 @@ def mutate_offspring(
     walk_prob_arr = np.array([0.99, 0.01])                # Mostly walk, small chance not to
 
     # ---------------- Diet Type ----------------
-    diet_type_prob_arr = np.array([0.50, 0.20, 0.20, 0.05, 0.05])              # Herb, Omni, Carn, Photo, Parasite
+    diet_type_prob_arr = np.array([0.51, 0.21, 0.21, 0.01, 0.06])              # Herb, Omni, Carn, Photo, Parasite
 
     # ---------------- Reproduction Type ----------------
     reproduction_type_prob_arr = np.array([0.5, 0.5])  # Sexual vs Asexual
@@ -362,7 +362,7 @@ def initialize_random_traits(
 
     # diet choice with fixed probabilities
     # Herb, Omni, Carn, Photo, Parasite
-    diet_probs = [0.50, 0.20, 0.20, 0.05, 0.05]
+    diet_probs = [0.50, 0.20, 0.254, 0.001, 0.045]
     diet_type_arr               = np.random.choice(
                                         gene_pool['diet_type'],
                                         size=n,

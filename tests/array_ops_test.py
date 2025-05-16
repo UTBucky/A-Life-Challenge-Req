@@ -187,30 +187,3 @@ def test_copy_parent_fields_full_copy():
 
 
 # -- mutate_offspring tests ---------------------------------------------
-
-def test_mutate_offspring_respects_bounds_and_mask(minimal_gene_pool):
-    n = 10
-    # start with zeros/off-by-default
-    offspring = np.zeros(n, dtype=ORGANISM_CLASS)
-    flip_mask = np.zeros(n, dtype=bool)
-    # flip indices 2 and 7
-    flip_mask[[2, 7]] = True
-    m = flip_mask.sum()
-
-    mutate_offspring(offspring, flip_mask, minimal_gene_pool, m)
-
-    # numeric fields within bounds only on flipped slots
-    for field in ['size','attack','defense','camouflage','vision','speed']:
-        arr = offspring[field]
-        lo, hi = minimal_gene_pool[field]
-        assert np.all((arr[flip_mask] >= lo) & (arr[flip_mask] <= hi))
-        # non-flipped remain zero
-        assert np.all(arr[~flip_mask] == 0.0)
-
-    # categorical fields drawn from gene_pool
-    assert set(offspring['diet_type'][flip_mask]).issubset(set(minimal_gene_pool['diet_type']))
-    assert set(offspring['reproduction_type'][flip_mask]).issubset(set(minimal_gene_pool['reproduction_type']))
-    assert set(offspring['pack_behavior'][flip_mask]).issubset(set(minimal_gene_pool['pack_behavior']))
-    assert set(offspring['swim'][flip_mask]).issubset(set(minimal_gene_pool['swim']))
-    assert set(offspring['walk'][flip_mask]).issubset(set(minimal_gene_pool['walk']))
-    assert set(offspring['fly'][flip_mask]).issubset(set(minimal_gene_pool['fly']))

@@ -266,7 +266,7 @@ def test_reproduce_without_gene_pool_raises(monkeypatch):
 
     # Force reproduction path:
     monkeypatch.setattr(np.random, 'rand', lambda size: np.zeros(size))       # so flip_mask=True
-    monkeypatch.setattr(np.random, 'uniform', lambda *args, **kw: np.zeros((1,2)))
+    monkeypatch.setattr(np.random, 'uniform', lambda *args, **kw: np.zeros((1,)))
 
     with pytest.raises(TypeError):
         orgs.reproduce()

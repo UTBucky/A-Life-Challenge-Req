@@ -89,27 +89,40 @@ class Viewer2D:
         Water (terrain < 0) is rendered as a blue
         gradient based on depth (-1 to 0).
         """
-        terrain_surface = pygame.Surface((self.env.get_width(),
-                                          self.env.get_length()))
+        w, h = self.env.get_width(), self.env.get_length()
+        terrain_surface = pygame.Surface((w, h))
         terrain = self.env.get_terrain()
+
         rgb = np.zeros((terrain.shape[0], terrain.shape[1], 3), dtype=np.uint8)
 
         # Land - Green
-        land_mask = terrain >= 0.0
-        rgb[land_mask] = np.asarray(
-            [34, 139, 34], dtype=np.uint8
-        )
+        flat_mask     = terrain == 0.0
+        water_mask    = terrain < 0.0
+        mountain_mask = terrain > 0.0
+
+        rgb[flat_mask] = np.array([34, 139, 34], dtype=np.uint8)
 
         # Water gradient
-        water_mask = terrain < 0.0
-        # Set only B for water no R/G
-        blue_values = 255 * (1 + terrain[water_mask])
-        blue_values[blue_values >= 255] = 0
-        blue_values = blue_values.astype(np.uint8)
-        rgb[water_mask, 0] = 0       # Red
-        rgb[water_mask, 1] = 0       # Green
-        rgb[water_mask, 2] = blue_values  # Blue gradient
+        depth = terrain[water_mask]           # negative values in [-1, 0)
+        blue = (255 * (1 + depth)).clip(0, 255).astype(np.uint8)
+        rgb[water_mask, 0] = 0
+        rgb[water_mask, 1] = 0
+        rgb[water_mask, 2] = blue
 
+        # Mountain graident
+        if mountain_mask.any():
+            heights = terrain[mountain_mask]            # in (0, max_h]
+            max_h   = float(terrain.max())              # assume > 0 since mask.any()
+            norm_h  = (heights / max_h).clip(0.0, 1.0)   # range [0,1]
+
+            # base color (same green) → peak color (white)
+            base_rgb  = np.array([34, 139, 34], dtype=np.float32)
+            brightness = 1.0 - 0.8 * norm_h   # at peak, brightness = 0.2
+            # apply to the base green:
+            darker = (base_rgb[None, :] * brightness[:, None]).clip(0,255)
+            rgb[mountain_mask] = darker.astype(np.uint8)
+
+        
         # Display
         pygame.surfarray.blit_array(terrain_surface, rgb.swapaxes(0, 1))
         terrain_surface = pygame.transform.scale(

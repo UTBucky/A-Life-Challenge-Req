@@ -86,12 +86,12 @@ class Environment:
 def generate_fractal_terrain(
     width,
     height,
-    num_octaves=4,
+    num_octaves=1,
     base_res=10,
     persistence=0.45,
-    steepness_damping=0.4,
-    erosion_passes=4,
-    erosion_strength=0.015,
+    steepness_damping=10,
+    erosion_passes=50,
+    erosion_strength=0.005,
     seed=None
 ):
     """
@@ -115,8 +115,8 @@ def generate_fractal_terrain(
     damping_mask = np.ones_like(terrain, dtype=np.float32)
 
     # Determine maximum grid dimensions for Perlin noise generation
-    max_gh = height // base_res + 2
-    max_gw = width  // base_res + 2
+    max_gh = height // base_res + 1
+    max_gw = width  // base_res + 1
     # Pre-allocate noise grid for various octaves
     noise_grid = np.empty((max_gh, max_gw), dtype=np.float32)
     # Layer buffer used for upsampled noise contribution
@@ -139,8 +139,8 @@ def generate_fractal_terrain(
         amp = persistence ** i
 
         # Calculate grid dimensions based on resolution
-        gh = height // res + 2
-        gw = width  // res + 2
+        gh = height // res + 1
+        gw = width  // res + 1
 
         # Fill the noise grid at this resolution
         # Each cell uses 2D Perlin noise with single-octave detail

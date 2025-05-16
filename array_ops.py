@@ -267,7 +267,7 @@ def initialize_default_traits(
     defense_arr            = np.zeros((n,),   dtype=np.float32)
     attack_arr             = np.zeros((n,),   dtype=np.float32)
     # or based on environment scale
-    vision_arr             = np.full((n,), 15,  dtype=np.float32)
+    vision_arr             = np.full((n,), 30,  dtype=np.float32)
     metabolism_rate_arr    = np.full((n,), 1.0, dtype=np.float32)
     nutrient_efficiency_arr= np.full((n,), 1.0, dtype=np.float32)
     diet_type_arr          = np.full(
@@ -284,10 +284,10 @@ def initialize_default_traits(
                             )
     pack_behavior_arr      = np.full((n,), False, dtype=np.bool_)
     symbiotic_arr          = np.full((n,), False, dtype=np.bool_)
-    swim_arr               = np.full((n,), False, dtype=np.bool_)
-    walk_arr               = np.full((n,), True,  dtype=np.bool_)
+    swim_arr               = np.full((n,), True, dtype=np.bool_)
+    walk_arr               = np.full((n,), False,  dtype=np.bool_)
     fly_arr                = np.full((n,), False, dtype=np.bool_)
-    speed_arr              = np.full((n,), 1.0, dtype=np.float32)
+    speed_arr              = np.full((n,), 2, dtype=np.float32)
     energy_arr             = np.full((n,), 20,  dtype=np.float32)
     #
     # Return in a tuple is ok because it's a wrapping of pointers

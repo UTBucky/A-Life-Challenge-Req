@@ -12,7 +12,10 @@ WATER_PUSH = 5.0
 LAND_PUSH = 5.0
 
 #Ecosystem energy constant
-ECO_ENERGY_CONST = 1000
+ECO_ENERGY_CONST = 100
+
+#Reproduction constant
+REPRODUCTION_PROXIMITY_CONST = 15
 
 class Organisms:
     """
@@ -180,7 +183,7 @@ class Organisms:
 
         # Single offspring per parent, randomized offset
         num_parents = parents.shape[0]
-        offset = np.random.uniform(-20, 20, size=(num_parents, 2))
+        offset = self.sample_circular_offsets(num_parents, REPRODUCTION_PROXIMITY_CONST)
         offspring = np.empty(num_parents, dtype=self._organism_dtype)
 
         # Inherit parent traits  
@@ -251,9 +254,18 @@ class Organisms:
         tree = self._pos_tree  # cKDTree built on coords
 
         # Compute distance to nearest other organism
-        dists, _ = tree.query(coords, k=2)
+        dists, idxs = tree.query(coords, k=2)
         nearest_dist = dists[:, 1]
-        safe_mask = nearest_dist >= 5
+        nearest_idx  = idxs[:, 1]
+
+        #Keep this for later, it's turned off right now
+        same_species = orgs['species'] == orgs['species'][nearest_idx]
+
+        # only apply the proximity rule when it's the same species:
+        # — if same_species AND too close ⇒ unsafe (False)
+        # — otherwise ⇒ safe (True)
+        # NOT CURRENTLY APPLIED, NEED TO ADD   | (~same_species)
+        safe_mask = (nearest_dist >= REPRODUCTION_PROXIMITY_CONST)
 
         # Identify parents with enough energy
         energy = orgs['energy']
@@ -261,10 +273,34 @@ class Organisms:
         reproducing = energy > cost
         parent_mask = reproducing & safe_mask
         if not np.any(parent_mask):
-            return np.zeros(0, dtype=self._organism_dtype), np.zeros(0, dtype=np.float32), np.zeros(0, dtype=bool)
-
+            return (
+                np.zeros(0, dtype=self._organism_dtype), 
+                np.zeros(0, dtype=np.float32), 
+                np.zeros(0, dtype=bool)
+            )
         return orgs[parent_mask], cost[parent_mask], parent_mask
-    
+
+    def sample_circular_offsets(self, num_offspring, reproduction_proximity_constant):
+        """
+        Spawn children further away than the constant, but only so much as twice
+        as far away as the reproduction proximity constant.
+        """
+        R_inner = reproduction_proximity_constant
+        R_outer = 2 * reproduction_proximity_constant
+
+        # 1) Sample squared‐radii uniformly so area is uniform
+        r2 = np.random.uniform(R_inner**2, R_outer**2, size=num_offspring)
+        r  = np.sqrt(r2)
+
+        # 2) Sample angles uniformly from 0 to 2π
+        theta = np.random.uniform(0, 2*np.pi, size=num_offspring)
+
+        # 3) Convert to Cartesian offsets
+        x = r * np.cos(theta)
+        y = r * np.sin(theta)
+
+        return np.stack((x, y), axis=1)  # shape (num_offspring, 2)
+
     def spawn_initial_organisms(self, 
         number_of_organisms:    int,
         randomize:              bool = False
@@ -441,7 +477,7 @@ class Organisms:
         penalty = (swim_only & land_mask) | (walk_only & ~land_mask)
 
         # subtract 0.1 * metabolism_rate for each violation
-        orgs['energy'][penalty] -= 3 * orgs['metabolism_rate'][penalty]
+        orgs['energy'][penalty] -= 15 * orgs['metabolism_rate'][penalty]
 
     def compute_terrain_avoidance(self, coords: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
         N = coords.shape[0]
@@ -751,16 +787,16 @@ class Organisms:
             idx_i = i[host]
             idx_j = j[host]
             dmg   = their_net[host]
-            energy[idx_i] -= 2 * dmg
-            energy[idx_j] += 2 * dmg
+            energy[idx_i] -= 20 * dmg
+            energy[idx_j] += 20 * dmg
 
         # Prey: i attacked j, damage = my_net
         if prey.any():
             idx_i = i[prey]
             idx_j = j[prey]
             dmg   = my_net[prey]
-            energy[idx_j] -= 2 * dmg
-            energy[idx_i] += 2 * dmg
+            energy[idx_j] -= 20 * dmg
+            energy[idx_i] += 20 * dmg
 
     def kill_border(self, margin: float = 0.01):
         """
@@ -790,7 +826,7 @@ class Organisms:
             return
 
         # set them to zero energy so remove_dead() will catch them
-        orgs['energy'][border_mask] = 0.0
+        orgs['energy'][border_mask] = -1000.0
 
     def remove_dead(self):
         """

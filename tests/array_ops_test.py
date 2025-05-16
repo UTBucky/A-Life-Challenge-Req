@@ -64,9 +64,9 @@ def test_initialize_default_traits_valid_minimum(minimal_gene_pool):
     assert reproduction_type_arr[0] == minimal_gene_pool['reproduction_type'][0]
 
     # check the unique default that walk_arr==True
-    assert bool(walk_arr[0]) == True
+    assert bool(swim_arr[0]) == True
     # default energy should be exactly 20 per code
-    assert energy_arr[0] == 20.0
+    assert energy_arr[0] == 10.0
 
 
 def test_initialize_default_traits_invalid_n_raises(minimal_gene_pool):

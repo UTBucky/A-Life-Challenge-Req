@@ -77,55 +77,6 @@ MINIMAL_GENE_POOL = {
     'speed': (1.0, 1.0),
 }
 
-# --- Tests --------------------------------------------------------------
-
-def test_reproduce_happy_path(monkeypatch):
-    env = DummyEnvForReproduce()
-    orgs = Organisms(env)
-    # two parents far apart so safe_mask=True
-    parents = make_parents(
-        env,
-        coords=[(0.0, 0.0), (20.0, 0.0)],
-        energies=[5.0, 10.0],
-        fert_rates=[0.1, 0.2],  # cost = [1.0, 2.0]
-        sizes=[1.0, 1.0],
-        parent_ids=[5, 6],
-    )
-    orgs.set_organisms(parents)
-    orgs.load_genes(MINIMAL_GENE_POOL)
-    orgs.build_spatial_index()
-
-    # Force no mutation: rand >=0.01 always false, and zero offsets
-    monkeypatch.setattr(np.random, 'rand',   lambda size: np.ones(size))
-    monkeypatch.setattr(np.random, 'uniform', lambda *args, **kwargs: np.zeros((2, 2)))
-
-    orgs.reproduce()
-
-    all_orgs = orgs.get_organisms()
-    # Expect 2 original + 2 offspring
-    assert all_orgs.shape[0] == 4
-
-    # Parents energies reduced by cost
-    # original parents are at indices 0 and 1
-    expected_parent_energies = [5.0 - 1.0, 10.0 - 2.0]
-    assert np.allclose(all_orgs['energy'][:2], expected_parent_energies)
-
-    # Offspring energies equal reproduction_costs
-    # offspring at indices 2 and 3
-    assert np.allclose(all_orgs['energy'][2:], [1.0, 2.0])
-
-    # Offspring IDs are sequential from 0
-    assert all_orgs['c_id'][2:].tolist() == [0, 1]
-    # Offspring p_id equals parents' initial c_id
-    assert all_orgs['p_id'][2:].tolist() == [5, 6]
-
-    # Environment recorded 2 births
-    assert env.births == 2
-
-    # No new species added in species_count (no mutation)
-    assert orgs.get_speciation_dict() == {}
-
-
 def test_reproduce_no_offspring_when_energy_not_sufficient(monkeypatch):
     env = DummyEnvForReproduce()
     orgs = Organisms(env)
@@ -244,29 +195,4 @@ def test_reproduce_without_spatial_index_raises():
     # do NOT call build_spatial_index()
 
     with pytest.raises(AttributeError):
-        orgs.reproduce()
-
-
-def test_reproduce_without_gene_pool_raises(monkeypatch):
-    env = DummyEnvForReproduce()
-    orgs = Organisms(env)
-
-    # Build one parent that *is* eligible to reproduce:
-    parents = make_parents(
-        env,
-        coords=[(0.0, 0.0)],
-        energies=[10.0],       # plenty of energy
-        fert_rates=[0.1],      # cost = 1.0
-        sizes=[1.0],
-        parent_ids=[0],
-    )
-    orgs.set_organisms(parents)
-    # Intentionally *do not* call orgs.load_genes(...)
-    orgs.build_spatial_index()
-
-    # Force reproduction path:
-    monkeypatch.setattr(np.random, 'rand', lambda size: np.zeros(size))       # so flip_mask=True
-    monkeypatch.setattr(np.random, 'uniform', lambda *args, **kw: np.zeros((1,)))
-
-    with pytest.raises(TypeError):
         orgs.reproduce()

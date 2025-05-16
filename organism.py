@@ -268,7 +268,7 @@ class Organisms:
     
     def spawn_initial_organisms(self, 
         number_of_organisms:    int,
-        randomize:              bool = False
+        randomize:              bool = True
         ) -> int:
         """
         Spawns the initial organisms in the simulation.

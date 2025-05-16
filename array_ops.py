@@ -289,12 +289,28 @@ def initialize_random_traits(
 ]:
     """
     Create randomized trait arrays for n organisms based on gene_pool.
-    Returns in order:
-      species_arr, size_arr, camouflage_arr, defense_arr, attack_arr,
-      vision_arr, metabolism_rate_arr, nutrient_efficiency_arr,
-      diet_type_arr, fertility_rate_arr, offspring_count_arr,
-      reproduction_type_arr, pack_behavior_arr, symbiotic_arr,
-      swim_arr, walk_arr, fly_arr, speed_arr, energy_arr
+    Returns:
+    --------
+    In order within a tuple:
+    - species_arr              : Species label (default "ORG").
+    - size_arr                 : Organism size.
+    - camouflage_arr           : Camouflage effectiveness.
+    - defense_arr              : Defensive capabilities.
+    - attack_arr               : Attack strength.
+    - vision_arr               : Vision radius.
+    - metabolism_rate_arr      : Rate of metabolic consumption.
+    - nutrient_efficiency_arr  : Efficiency in processing food.
+    - diet_type_arr            : Type of diet.
+    - fertility_rate_arr       : Rate of fertility.
+    - offspring_count_arr      : Number of offspring per reproduction.
+    - reproduction_type_arr    : Method of reproduction.
+    - pack_behavior_arr        : Whether it displays pack behavior.
+    - symbiotic_arr            : Whether it exhibits symbiotic behavior.
+    - swim_arr                 : Capability to swim.
+    - walk_arr                 : Capability to walk.
+    - fly_arr                  : Capability to fly.
+    - speed_arr                : Movement speed.
+    - energy_arr               : Initial energy value.
     """
     if n <= 0:
         raise ValueError("Number of traits 'n' must be greater than 0.")
@@ -319,45 +335,65 @@ def initialize_random_traits(
     nutrient_efficiency_arr= uni('nutrient_efficiency')
 
     # diet choice with fixed probabilities
+    # Herb, Omni, Carn, Photo, Parasite
     p = [0.50, 0.20, 0.20, 0.05, 0.05]
-    diet_type_arr = np.random.choice(
-        gene_pool['diet_type'],
-        size=n,
-        p=p
-    ).astype('U15')
+    diet_type_arr               = np.random.choice(
+                                        gene_pool['diet_type'],
+                                        size=n,
+                                        p=p
+                                ).astype('U15')
 
-    # — ReproductionGenes —
-    fertility_rate_arr = uni('fertility_rate')
-    offspring_count_arr = np.random.randint(
-        gene_pool['offspring_count'][0],
-        gene_pool['offspring_count'][1] + 1,
-        size=(n,)
-    ).astype(np.int32)
-    reproduction_type_arr = np.random.choice(
-        gene_pool['reproduction_type'],
-        size=n
-    ).astype('U15')
 
-    # — BehavioralGenes —
-    pack_behavior_arr = np.random.choice(
-        gene_pool['pack_behavior'], size=n
-    ).astype(bool)
-    symbiotic_arr     = np.random.choice(
-        gene_pool['symbiotic'],     size=n
-    ).astype(bool)
+ # ---------------- Reproduction Genes ----------------
+    fertility_rate_arr          = uni('fertility_rate')
+    # TODO Implement multi_offspring creation
+    offspring_count_arr         = np.random.randint(
+                                      low=gene_pool['offspring_count'][0],
+                                      high=gene_pool['offspring_count'][1] + 1,
+                                      size=n
+                                ).astype(np.int32)
+    # TODO Implement sexual reproduction
+    reproduction_type_arr       = np.random.choice(
+                                      gene_pool['reproduction_type'],
+                                      size=n
+                                ).astype('U15')
 
-    # — LocomotionGenes —
-    swim_arr = np.random.choice(
-        gene_pool['swim'], size=n
-    ).astype(bool)
-    walk_arr = np.random.choice(
-        gene_pool['walk'], size=n
-    ).astype(bool)
-    fly_arr  = np.random.choice(
-        gene_pool['fly'],  size=n
-    ).astype(bool)
+    # ---------------- Behavioral Genes ----------------
+    pack_probs = [0.99, 0.01]
+    pack_behavior_arr           = np.random.choice(
+                                      gene_pool['pack_behavior'],
+                                      size=n,
+                                      p=pack_probs
+                                ).astype(bool)
+    # TODO Implement symbiotic energy distribution
+    symbiotic_arr               = np.random.choice(
+                                      gene_pool['symbiotic'],
+                                      size=n
+                                ).astype(bool)
 
-    # speed & energy
+    # ---------------- Locomotion Genes ----------------
+    swim_probs = [0.10, 0.90]
+    swim_arr                    = np.random.choice(
+                                      gene_pool['swim'],
+                                      size=n,
+                                      p=swim_probs
+                                ).astype(bool)
+
+    walk_probs = [0.90, 0.10]    
+    walk_arr                    = np.random.choice(
+                                      gene_pool['walk'],
+                                      size=n,
+                                      p=walk_probs
+                                ).astype(bool)
+
+    fly_probs = [0.99,0.01]
+    fly_arr                     = np.random.choice(
+                                      gene_pool['fly'],
+                                      size=n,
+                                      p=fly_probs
+                                ).astype(bool)
+
+    # ---------------- Speed & Initial Energy ----------------
     speed_arr  = uni('speed')
     energy_arr = np.random.uniform(10, 30, size=(n,)).astype(np.float32)
 

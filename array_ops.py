@@ -3,8 +3,8 @@ from scipy.spatial import cKDTree
 from typing import Tuple, Dict
 
 # Terrain avoidance constants
-WATER_PUSH = 1.0
-LAND_PUSH = 1.0
+WATER_PUSH = 0.1
+LAND_PUSH = 0.1
 
 # Pack behavior constants
 SEPARATION_WEIGHT = 2
@@ -623,9 +623,9 @@ def movement_compute(
         prey     = pool[prey_mask]
 
         if hostiles.size > 0:
-            move_vec += (pos - coords[hostiles]).mean(axis=0)
+            move_vec += ((pos - coords[hostiles]).mean(axis=0))/100
         if prey.size > 0:
-            move_vec += (coords[prey] - pos).mean(axis=0)
+            move_vec += ((coords[prey] - pos).mean(axis=0))/100
 
         # crowd repulsion
         CROWD_PUSH = 0.001 * my_speed

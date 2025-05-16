@@ -11,10 +11,8 @@ from lineage_tracker import *
 WATER_PUSH = 5.0
 LAND_PUSH = 5.0
 
-# Pack behavior constants
-SEPARATION_WEIGHT = 10
-SEPARATION_RADIUS = 5
-
+#Ecosystem energy constant
+ECO_ENERGY_CONST = 1000
 
 class Organisms:
     """
@@ -255,7 +253,7 @@ class Organisms:
         # Compute distance to nearest other organism
         dists, _ = tree.query(coords, k=2)
         nearest_dist = dists[:, 1]
-        safe_mask = nearest_dist >= 7.5
+        safe_mask = nearest_dist >= 5
 
         # Identify parents with enough energy
         energy = orgs['energy']
@@ -546,11 +544,13 @@ class Organisms:
             - Right now plants also cannot move
         """
         non_photo = organism_arr['diet_type'] != 'Photo'
+        photo = ~non_photo
         organism_arr['x_pos'][non_photo] = new_pos_arr[non_photo, 0]
         organism_arr['y_pos'][non_photo] = new_pos_arr[non_photo, 1]
         dists = np.linalg.norm(new_pos_arr[non_photo] - old_coords_arr[non_photo], axis=1)
         move_costs = 0.01 * dists * organism_arr['metabolism_rate'][non_photo]
         organism_arr['energy'][non_photo] -= move_costs
+        organism_arr['energy'][photo] += ECO_ENERGY_CONST/(photo.shape[0])
 
     def resolve_attacks(self):
         """
@@ -751,7 +751,7 @@ class Organisms:
             idx_i = i[host]
             idx_j = j[host]
             dmg   = their_net[host]
-            energy[idx_i] -= dmg
+            energy[idx_i] -= 2 * dmg
             energy[idx_j] += 2 * dmg
 
         # Prey: i attacked j, damage = my_net
@@ -759,10 +759,10 @@ class Organisms:
             idx_i = i[prey]
             idx_j = j[prey]
             dmg   = my_net[prey]
-            energy[idx_j] -= dmg
+            energy[idx_j] -= 2 * dmg
             energy[idx_i] += 2 * dmg
 
-    def kill_border(self, margin: float = 0.03):
+    def kill_border(self, margin: float = 0.01):
         """
         Instantly kills (sets energy to 0 and removes) all organisms
         within `margin` fraction of the environment border.

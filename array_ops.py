@@ -7,8 +7,8 @@ WATER_PUSH = 1.0
 LAND_PUSH = 1.0
 
 # Pack behavior constants
-SEPARATION_WEIGHT = 50
-SEPARATION_RADIUS = 20
+SEPARATION_WEIGHT = 2
+SEPARATION_RADIUS = 1
 
 #In-Place mutator
 def copy_valid_count( 
@@ -591,7 +591,6 @@ def movement_compute(
         my_pack = pack_flag[index]
         my_speed = speed[index]
         if my_diet == 'Photo':
-            my['energy'] += 0.25
             my_def = 0
             my_att = 0
             move_vec = np.zeros(2, dtype=np.float32)

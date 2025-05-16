@@ -757,7 +757,7 @@ class Organisms:
             idx_j = j[host]
             dmg   = their_net[host]
             energy[idx_i] -= dmg
-            energy[idx_j] += dmg
+            energy[idx_j] += 2 * dmg
 
         # Prey: i attacked j, damage = my_net
         if prey.any():
@@ -765,7 +765,7 @@ class Organisms:
             idx_j = j[prey]
             dmg   = my_net[prey]
             energy[idx_j] -= dmg
-            energy[idx_i] += dmg
+            energy[idx_i] += 2 * dmg
 
     def kill_border(self, margin: float = 0.03):
         """

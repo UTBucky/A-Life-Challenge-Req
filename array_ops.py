@@ -118,14 +118,14 @@ def mutate_offspring(
 
     # ===================== Continuous Genes =====================
     offspring['size'][flip_mask]               += np.random.uniform(
-                                                    low=-0.1,
-                                                    high=0.1,
+                                                    low=--0.1,
+                                                    high=0.11,
                                                     size=m
                                                 ).astype(np.float32)
 
     offspring['camouflage'][flip_mask]         += np.random.uniform(
-                                                    low=1,
-                                                    high=2,
+                                                    low=-0.1,
+                                                    high=0.3,
                                                     size=m
                                                 ).astype(np.float32)
 
@@ -142,8 +142,8 @@ def mutate_offspring(
                                                 ).astype(np.float32)
 
     offspring['vision'][flip_mask]             += np.random.uniform(
-                                                    low=-2,
-                                                    high=2,
+                                                    low=--0.2,
+                                                    high=0.3,
                                                     size=m
                                                 ).astype(np.float32)
 

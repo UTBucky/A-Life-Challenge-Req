@@ -171,23 +171,33 @@ class Viewer2D:
         
         births = self.env.get_total_births()
         deaths = self.env.get_total_deaths()
-        masked = orgs['energy'][alive_mask]
-        avg_energy = np.mean(masked) if masked.size > 0 else 0
+        energies = orgs['energy'][alive_mask]
+        avg_energy = np.mean(energies) if energies.size > 0 else 0
 
-        birth_text = self.font.render(
-            f"Births: {births}", True, (255, 255, 255)
-        )
-        death_text = self.font.render(
-            f"Deaths: {deaths}", True, (255, 255, 255)
-        )
-        energy_text = self.font.render(
-            f"Avg Energy: {avg_energy:.2f}", True, (255, 255, 255)
-        )
-
-        self.screen.blit(birth_text, (10, 50))
-        self.screen.blit(death_text, (10, 70))
-        self.screen.blit(energy_text, (10, 90))
-
+        y = 50
+        for label, val in [("Births", births),("deaths", deaths), ("Avg_Energy", f"{avg_energy:.2f}")]:
+            txt = self.font.render(f"{label}: {val}", True, (255, 255, 255))
+            self.screen.blit(txt, (10,y))
+            y += 20
+        
+        species_array = orgs['species'][alive_mask]
+        if species_array.size > 0:
+            uniq, counts = np.unique(species_array, return_counts=True)
+            
+            order = np.argsort(-counts)
+            y += 10
+            header = self.font.render("Live Species:", True, (255,255,0))
+            self.screen.blit(header, (10,y))
+            y += 20
+            
+            for idx in order:
+                sp    = uniq[idx]
+                cnt   = counts[idx]
+                line  = self.font.render(f"{sp}: {cnt}", True, (200,200,200))
+                self.screen.blit(line, (20,y))
+                y += 20
+        
+        
     def draw_sidebar(self):
         """
         Sidebar background box.

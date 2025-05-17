@@ -11,12 +11,13 @@ class Viewer2D:
     """
     Plane-based viewer (continuous 2D coordinates) with sidebar stats.
     """
+
     def __init__(
             self,
             environment,
-            window_size=(1000, 800),
+            window_size=(1920, 1280),
             sidebar_width=200
-            ):
+    ):
         """
         Stores an a-life environment to render, window size and sidebar are
         default (1000,800)/200 respectively
@@ -47,7 +48,8 @@ class Viewer2D:
         self._running = True
 
         # Creates reference to button objects for use in draw/handle_event functions
-        self._stop_start_button = create_stop_start_button(self.screen, self.font, self._running)
+        self._stop_start_button = create_stop_start_button(
+            self.screen, self.font, self._running)
         self._save_button = create_save_button(self.screen, self.font)
         self._load_button = create_load_button(self.screen, self.font)
         self._skip_button = create_skip_button(self.screen, self.font)
@@ -77,7 +79,7 @@ class Viewer2D:
         self._skip_button.draw_button()
 
         pygame.display.flip()
-        self.clock.tick(5)
+        self.clock.tick(10)
         self.timestep += 1
 
     def draw_terrain(self):
@@ -87,52 +89,76 @@ class Viewer2D:
         Water (terrain < 0) is rendered as a blue
         gradient based on depth (-1 to 0).
         """
-        terrain_surface = pygame.Surface((self.env.get_width(),
-                                          self.env.get_length()))
+        w, h = self.env.get_width(), self.env.get_length()
+        terrain_surface = pygame.Surface((w, h))
         terrain = self.env.get_terrain()
+
         rgb = np.zeros((terrain.shape[0], terrain.shape[1], 3), dtype=np.uint8)
 
         # Land - Green
-        land_mask = terrain >= 0.0
-        rgb[land_mask] = np.asarray(
-            [34, 139, 34], dtype=np.uint8
-            )
+        flat_mask     = terrain == 0.0
+        water_mask    = terrain < 0.0
+        mountain_mask = terrain > 0.0
+
+        rgb[flat_mask] = np.array([34, 139, 34], dtype=np.uint8)
 
         # Water gradient
-        water_mask = terrain < 0.0
-        # Set only B for water no R/G
-        blue_values = 255 * (1 + terrain[water_mask])
-        blue_values[blue_values >= 255] = 0
-        blue_values = blue_values.astype(np.uint8)
-        rgb[water_mask, 0] = 0       # Red
-        rgb[water_mask, 1] = 0       # Green
-        rgb[water_mask, 2] = blue_values  # Blue gradient
+        depth = terrain[water_mask]           # negative values in [-1, 0)
+        blue = (255 * (1 + depth)).clip(0, 255).astype(np.uint8)
+        rgb[water_mask, 0] = 0
+        rgb[water_mask, 1] = 0
+        rgb[water_mask, 2] = blue
 
+        # Mountain graident
+        if mountain_mask.any():
+            heights = terrain[mountain_mask]            # in (0, max_h]
+            max_h   = float(terrain.max())              # assume > 0 since mask.any()
+            norm_h  = (heights / max_h).clip(0.0, 1.0)   # range [0,1]
+
+            # base color (same green) → peak color (white)
+            base_rgb  = np.array([34, 139, 34], dtype=np.float32)
+            brightness = 1.0 - 0.8 * norm_h   # at peak, brightness = 0.2
+            # apply to the base green:
+            darker = (base_rgb[None, :] * brightness[:, None]).clip(0,255)
+            rgb[mountain_mask] = darker.astype(np.uint8)
+
+        
         # Display
         pygame.surfarray.blit_array(terrain_surface, rgb.swapaxes(0, 1))
         terrain_surface = pygame.transform.scale(
             terrain_surface, self.main_area
-            )
+        )
         self.screen.blit(terrain_surface, (self.sidebar_width, 0))
 
     def draw_organisms(self):
         """
         Renders all organisms as colored dots depending on energy level.
         Only renders those marked as alive.
+        Energy → color mapping:
+        e < 5   → red
+        5 ≤ e < 10  → red-orange
+        10 ≤ e < 20 → orange-yellow
+        20 ≤ e < 40 → yellow
+        40 ≤ e < 80 → white
+        e ≥ 80      → white
         """
         alive = self.env.get_organisms().get_organisms()
 
         for org in alive:
             x = int(org['x_pos'] * self.scale_x) + self.sidebar_width
             y = int(org['y_pos'] * self.scale_y)
-            energy = org['energy']
+            e = float(org['energy'])
 
-            if energy < 5:
-                color = (255, 0, 0)
-            elif energy < 15:
-                color = (255, 255, 0)
+            if e < 1:
+                color = (255,   0,   0)   # red
+            elif e < 2:
+                color = (255,  69,   0)   # red-orange
+            elif e < 3:
+                color = (255, 165,   0)   # orange-yellow
+            elif e < 4:
+                color = (255, 255,   0)   # yellow
             else:
-                color = (0, 255, 0)
+                color = (255, 255, 255)   # white for e ≥ 40
 
             pygame.draw.circle(self.screen, color, (x, y), 3)
 
@@ -140,25 +166,38 @@ class Viewer2D:
         """
         Display births, deaths, and average energy of the alive population.
         """
-        alive = self.env.get_organisms().get_organisms()
+        orgs = self.env.get_organisms().get_organisms()
+        alive_mask = (orgs['energy'] >= 0)
+        
         births = self.env.get_total_births()
         deaths = self.env.get_total_deaths()
-        avg_energy = np.mean(alive['energy']) if len(alive) > 0 else 0
+        energies = orgs['energy'][alive_mask]
+        avg_energy = np.mean(energies) if energies.size > 0 else 0
 
-        birth_text = self.font.render(
-            f"Births: {births}", True, (255, 255, 255)
-            )
-        death_text = self.font.render(
-            f"Deaths: {deaths}", True, (255, 255, 255)
-            )
-        energy_text = self.font.render(
-            f"Avg Energy: {avg_energy:.2f}", True, (255, 255, 255)
-            )
-
-        self.screen.blit(birth_text, (10, 50))
-        self.screen.blit(death_text, (10, 70))
-        self.screen.blit(energy_text, (10, 90))
-
+        y = 50
+        for label, val in [("Births", births),("deaths", deaths), ("Avg_Energy", f"{avg_energy:.2f}")]:
+            txt = self.font.render(f"{label}: {val}", True, (255, 255, 255))
+            self.screen.blit(txt, (10,y))
+            y += 20
+        
+        species_array = orgs['species'][alive_mask]
+        if species_array.size > 0:
+            uniq, counts = np.unique(species_array, return_counts=True)
+            
+            order = np.argsort(-counts)
+            y += 10
+            header = self.font.render("Live Species:", True, (255,255,0))
+            self.screen.blit(header, (10,y))
+            y += 20
+            
+            for idx in order:
+                sp    = uniq[idx]
+                cnt   = counts[idx]
+                line  = self.font.render(f"{sp}: {cnt}", True, (200,200,200))
+                self.screen.blit(line, (20,y))
+                y += 20
+        
+        
     def draw_sidebar(self):
         """
         Sidebar background box.
@@ -166,7 +205,7 @@ class Viewer2D:
         pygame.draw.rect(
             self.screen, (30, 30, 30),
             pygame.Rect(0, 0, self.sidebar_width, self.window_size[1])
-            )
+        )
 
     def draw_generation_stat(self):
         """
@@ -174,7 +213,7 @@ class Viewer2D:
         """
         gen_text = self.font.render(
             f"Generation: {self.timestep}", True, (255, 255, 255)
-            )
+        )
         self.screen.blit(gen_text, (10, 10))
 
     def draw_total_population_stat(self):
@@ -203,11 +242,16 @@ class Viewer2D:
                     self._running = not self._running
 
                 if self._save_button.get_rectangle().collidepoint(event.pos):               # Save simulation
-                    self._save_button.save_simulation_prompt(self.env, self.timestep)
+                    self._save_button.save_simulation_prompt(
+                        self.env, self.timestep)
 
                 if self._load_button.get_rectangle().collidepoint(event.pos):               # Load simulation
                     saved_env, saved_timestep = self._load_button.load_simulation_prompt()
                     if saved_env is not None:
                         self.env = saved_env
                         self.timestep = saved_timestep
+                
+                # TODO: Add the following button for creating a phylogenetic tree.
+                # tree = Phylo.read((StringIO(self.env.get_organisms().get_lineage_tracker().full_forest_newick())), "newick")
+                # Phylo.write(tree, "my_tree.nwk", "newick")
         return True

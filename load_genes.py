@@ -1,41 +1,81 @@
 import json
-import genome
+import os
+import pprint
 
+script_dir = os.path.dirname(os.path.abspath(__file__))
+file_path = os.path.join(script_dir, 'gene_settings.json')
 
-def load_genes_from_file(filename="gene_settings.json") -> dict:
+def load_genes_from_file(filename=file_path) -> dict:
     """
-    Loads gene settings from a json file,
-    returning a dictionary of gene objects
+    Loads gene ranges from a JSON file and returns a dictionary
+    mapping gene names to (min, max) tuples for continuous values
+    or lists of options for categorical values.
 
-    :param filename: A string
+    Example Output:
+    {
+        'size': (0.0, 1.0),
+        'camouflage': (0.0, 1.0),
+        'defense': (0.0, 1.0),
+        'attack': (0.0, 1.0),
+        'vision': (0.0, 1.0),
+        'metabolism_rate': (0.0, 1.0),
+        'nutrient_efficiency': (0.0, 1.0),
+        'diet_type': ['Herb', 'Omni', 'Carn', 'Photo', 'Parasite'],
+        ...
+    }
     """
+    with open(filename, 'r') as f:
+        data = json.load(f)
 
-    genes_file = open(filename)
-    genes_data = json.load(genes_file)
-    gene_pool = {}
+    gene_pool = data["gene_pool"]
+    gene_dict = {}
 
-    for gene in genes_data:
+    # Morphological genes
+    if "morphological" in gene_pool:
+        values = gene_pool["morphological"]["values"]
+        min_vals = values["min"]
+        max_vals = values["max"]
+        keys = ["size", "camouflage", "defense", "attack", "vision"]
+        for i, key in enumerate(keys):
+            gene_dict[key] = (min_vals[i], max_vals[i])
 
-        if gene == "energy_prod":
-            options = genes_data[gene]["options"]
-            values = genes_data[gene]["values"]
-            energy_gene = genome.EnergyGene(options[0],
-                                            values[1],
-                                            values[0],
-                                            values[2],
-                                            options)
-            gene_pool[gene] = energy_gene
+    # Metabolic genes
+    if "metabolic" in gene_pool:
+        numeric = gene_pool["metabolic"]["numeric"]
+        gene_dict["metabolism_rate"] = (numeric["min"][0], numeric["max"][0])
+        gene_dict["nutrient_efficiency"] = (
+            numeric["min"][1], numeric["max"][1])
+        gene_dict["diet_type"] = gene_pool["metabolic"]["diet_type"]
 
-        elif gene == "move_aff":
-            options = genes_data[gene]
-            gene_pool[gene] = genome.MoveGene(options[0], options)
+    # Reproduction genes
+    if "reproduction" in gene_pool:
+        gene_dict["fertility_rate"] = (
+            gene_pool["reproduction"]["fertility_rate"]["min"],
+            gene_pool["reproduction"]["fertility_rate"]["max"]
+        )
+        gene_dict["offspring_count"] = (
+            gene_pool["reproduction"]["offspring_count"]["min"],
+            gene_pool["reproduction"]["offspring_count"]["max"]
+        )
+        gene_dict["reproduction_type"] = gene_pool["reproduction"]["reproduction_type"]
 
-        else:
-            gene_sett = genes_data[gene]
-            gene_pool[gene] = genome.Gene(type,
-                                          gene_sett[1],
-                                          gene_sett[0],
-                                          gene_sett[2])
+    # Behavioral genes
+    if "behavioral" in gene_pool:
+        gene_dict["pack_behavior"] = gene_pool["behavioral"]["pack_behavior"]
+        gene_dict["symbiotic"] = gene_pool["behavioral"]["symbiotic"]
 
-    genes_file.close()
-    return gene_pool
+    # Locomotion genes
+    if "locomotion" in gene_pool:
+        gene_dict["swim"] = gene_pool["locomotion"]["swim"]
+        gene_dict["walk"] = gene_pool["locomotion"]["walk"]
+        gene_dict["fly"] = gene_pool["locomotion"]["fly"]
+        gene_dict["speed"] = (
+            gene_pool["locomotion"]["speed"]["min"],
+            gene_pool["locomotion"]["speed"]["max"]
+        )
+
+    return gene_dict
+
+
+if __name__ == "__main__":
+    pprint.pprint(load_genes_from_file("gene_settings.json"))

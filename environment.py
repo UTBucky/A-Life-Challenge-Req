@@ -3,10 +3,6 @@ from scipy.ndimage import zoom, gaussian_gradient_magnitude
 import numpy as np
 from organism import Organisms
 from io import StringIO
-import matplotlib
-# switch to a non‐interactive backend so no GUI pops up
-matplotlib.use("Agg")
-import matplotlib.pyplot as plt
 from Bio import Phylo
 
 class Environment:
@@ -84,40 +80,18 @@ class Environment:
         self._organisms.reproduce()
         self._organisms.kill_border()
         self._organisms.remove_dead()
-        self._organisms.get_organisms()['energy'] -= 0.01
+        self._organisms.get_organisms()['energy'] -= 0.0001
         self._generation += 1
-
-
-def dict_to_newick(tree: dict[int, dict]) -> str:
-    """
-    Convert a nested‐dict tree into a Newick string.
-    Example input: {1: {5: {17: {}}, 8: {}}, 2: {9: {}}}
-    Returns: "( (17)5,8 )1, (9)2 );"
-    """
-    def _rec(subtree: dict[int, dict]) -> str:
-        # subtree is {node: child_subtree, ...}
-        parts = []
-        for node, children in subtree.items():
-            if children:
-                parts.append(f"{_rec(children)}{node}")
-            else:
-                parts.append(str(node))
-        # join siblings with commas and wrap in parentheses
-        return "(" + ",".join(parts) + ")"
-    # top‐level may have multiple roots; wrap them too
-    newick_body = ",".join(_rec({r: tree[r]}) + str(r) for r in tree)
-    return newick_body + ";"
-
 
 def generate_fractal_terrain(
     width,
     height,
-    num_octaves=4,
+    num_octaves=1,
     base_res=10,
     persistence=0.45,
-    steepness_damping=0.4,
-    erosion_passes=4,
-    erosion_strength=0.015,
+    steepness_damping=10,
+    erosion_passes=50,
+    erosion_strength=0.005,
     seed=None
 ):
     """
@@ -141,8 +115,8 @@ def generate_fractal_terrain(
     damping_mask = np.ones_like(terrain, dtype=np.float32)
 
     # Determine maximum grid dimensions for Perlin noise generation
-    max_gh = height // base_res + 2
-    max_gw = width  // base_res + 2
+    max_gh = height // base_res + 1
+    max_gw = width  // base_res + 1
     # Pre-allocate noise grid for various octaves
     noise_grid = np.empty((max_gh, max_gw), dtype=np.float32)
     # Layer buffer used for upsampled noise contribution
@@ -165,8 +139,8 @@ def generate_fractal_terrain(
         amp = persistence ** i
 
         # Calculate grid dimensions based on resolution
-        gh = height // res + 2
-        gw = width  // res + 2
+        gh = height // res + 1
+        gw = width  // res + 1
 
         # Fill the noise grid at this resolution
         # Each cell uses 2D Perlin noise with single-octave detail

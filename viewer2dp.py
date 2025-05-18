@@ -89,27 +89,40 @@ class Viewer2D:
         Water (terrain < 0) is rendered as a blue
         gradient based on depth (-1 to 0).
         """
-        terrain_surface = pygame.Surface((self.env.get_width(),
-                                          self.env.get_length()))
+        w, h = self.env.get_width(), self.env.get_length()
+        terrain_surface = pygame.Surface((w, h))
         terrain = self.env.get_terrain()
+
         rgb = np.zeros((terrain.shape[0], terrain.shape[1], 3), dtype=np.uint8)
 
         # Land - Green
-        land_mask = terrain >= 0.0
-        rgb[land_mask] = np.asarray(
-            [34, 139, 34], dtype=np.uint8
-        )
+        flat_mask     = terrain == 0.0
+        water_mask    = terrain < 0.0
+        mountain_mask = terrain > 0.0
+
+        rgb[flat_mask] = np.array([34, 139, 34], dtype=np.uint8)
 
         # Water gradient
-        water_mask = terrain < 0.0
-        # Set only B for water no R/G
-        blue_values = 255 * (1 + terrain[water_mask])
-        blue_values[blue_values >= 255] = 0
-        blue_values = blue_values.astype(np.uint8)
-        rgb[water_mask, 0] = 0       # Red
-        rgb[water_mask, 1] = 0       # Green
-        rgb[water_mask, 2] = blue_values  # Blue gradient
+        depth = terrain[water_mask]           # negative values in [-1, 0)
+        blue = (255 * (1 + depth)).clip(0, 255).astype(np.uint8)
+        rgb[water_mask, 0] = 0
+        rgb[water_mask, 1] = 0
+        rgb[water_mask, 2] = blue
 
+        # Mountain graident
+        if mountain_mask.any():
+            heights = terrain[mountain_mask]            # in (0, max_h]
+            max_h   = float(terrain.max())              # assume > 0 since mask.any()
+            norm_h  = (heights / max_h).clip(0.0, 1.0)   # range [0,1]
+
+            # base color (same green) → peak color (white)
+            base_rgb  = np.array([34, 139, 34], dtype=np.float32)
+            brightness = 1.0 - 0.8 * norm_h   # at peak, brightness = 0.2
+            # apply to the base green:
+            darker = (base_rgb[None, :] * brightness[:, None]).clip(0,255)
+            rgb[mountain_mask] = darker.astype(np.uint8)
+
+        
         # Display
         pygame.surfarray.blit_array(terrain_surface, rgb.swapaxes(0, 1))
         terrain_surface = pygame.transform.scale(
@@ -153,27 +166,38 @@ class Viewer2D:
         """
         Display births, deaths, and average energy of the alive population.
         """
-        alive_mask = (self.env.get_organisms().get_organisms()['energy'] >= 0)
-        alive = self.env.get_organisms().get_organisms()
+        orgs = self.env.get_organisms().get_organisms()
+        alive_mask = (orgs['energy'] >= 0)
+        
         births = self.env.get_total_births()
         deaths = self.env.get_total_deaths()
-        masked = alive['energy'][alive_mask]
-        avg_energy = np.mean(masked) if masked.size > 0 else 0
+        energies = orgs['energy'][alive_mask]
+        avg_energy = np.mean(energies) if energies.size > 0 else 0
 
-        birth_text = self.font.render(
-            f"Births: {births}", True, (255, 255, 255)
-        )
-        death_text = self.font.render(
-            f"Deaths: {deaths}", True, (255, 255, 255)
-        )
-        energy_text = self.font.render(
-            f"Avg Energy: {avg_energy:.2f}", True, (255, 255, 255)
-        )
-
-        self.screen.blit(birth_text, (10, 50))
-        self.screen.blit(death_text, (10, 70))
-        self.screen.blit(energy_text, (10, 90))
-
+        y = 50
+        for label, val in [("Births", births),("deaths", deaths), ("Avg_Energy", f"{avg_energy:.2f}")]:
+            txt = self.font.render(f"{label}: {val}", True, (255, 255, 255))
+            self.screen.blit(txt, (10,y))
+            y += 20
+        
+        species_array = orgs['species'][alive_mask]
+        if species_array.size > 0:
+            uniq, counts = np.unique(species_array, return_counts=True)
+            
+            order = np.argsort(-counts)
+            y += 10
+            header = self.font.render("Live Species:", True, (255,255,0))
+            self.screen.blit(header, (10,y))
+            y += 20
+            
+            for idx in order:
+                sp    = uniq[idx]
+                cnt   = counts[idx]
+                line  = self.font.render(f"{sp}: {cnt}", True, (200,200,200))
+                self.screen.blit(line, (20,y))
+                y += 20
+        
+        
     def draw_sidebar(self):
         """
         Sidebar background box.

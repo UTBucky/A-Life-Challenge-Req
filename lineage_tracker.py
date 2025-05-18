@@ -47,12 +47,38 @@ class LineageTracker:
         # 4) Any c_id with no known parent: “founders”
         self._global_roots: Set[int] = set()
 
-    def track_lineage(self, 
+    def track_lineage(
+        self, 
         p_array: np.ndarray, 
         c_array: np.ndarray, 
-        gen: int):
-
+        gen: int
+    ) -> None:
+        """
+        Tracks lineage relationships between parent and child organisms, 
+        establishing hierarchical and species-based genealogies.
+        - Takes np.ndarry's of parents and cildren
+        - Takes an int representing the generation we are in 
+        Returns:
+        --------
+        None
+            This method updates internal data structures of the object, 
+            specifically:
+            - `_nodes`: A dictionary mapping child IDs to `OrgNode` objects.
+            - `_children`: A dictionary mapping parent IDs to lists of child IDs.
+            - `_species_roots`: A dictionary mapping species names to their root IDs.
+            - `_global_roots`: A set of global root IDs for founders.
+        
+        Side Effects:
+        -------------
+        - If a parent or species is not seen before, it is registered in the
+        appropriate root structures (`_species_roots`, `_global_roots`).
+        - Creates and stores new `OrgNode` objects for child organisms.
+        - Links parent to child in the `_children` structure.
+        """
+        # Initialize a set of previously seen nodes
         seen_before = set(self._nodes)
+        
+        # Iterate through parent and child records simultaneously
         for parent_rec, child_rec in zip(p_array, c_array):
             p_id = int(parent_rec['c_id'])
             c_id = int(child_rec['c_id'])

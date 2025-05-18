@@ -1,5 +1,7 @@
 import numpy as np
 from scipy.spatial import cKDTree
+from scipy.ndimage import distance_transform_edt
+from scipy.ndimage import map_coordinates
 import random
 from array_ops import *
 from collections import defaultdict
@@ -9,10 +11,11 @@ from lineage_tracker import *
 WATER_PUSH = 5.0
 LAND_PUSH = 5.0
 
-# Pack behavior constants
-SEPARATION_WEIGHT = 10
-SEPARATION_RADIUS = 5
+#Ecosystem energy constant
+ECO_ENERGY_CONST = 100
 
+#Reproduction constant
+REPRODUCTION_PROXIMITY_CONST = 15
 
 class Organisms:
     """
@@ -83,7 +86,7 @@ class Organisms:
         
         # Lineage
         self._lineage_tracker = LineageTracker()
-        self._species_count = {}
+        self._speciation_dict = {}
         self._next_id = 0
         self._founders = None
         self._lineage_map: dict[int, list[int]] = defaultdict(list)
@@ -92,20 +95,42 @@ class Organisms:
 
 
     def load_genes(self, gene_pool):
+        """
+        Loads the gene pool dictionary.
+        """
         self._gene_pool = gene_pool
 
     # Get methods
-    def get_organisms(self):
+    def get_genes(self) -> dict:
+        """
+        Returns the gene pool dictionary.
+        """
+        return self._gene_pool
+
+    def get_organisms(self) -> np.ndarray:
+        """
+        Returns the numpy array of organism_dtypes.
+        """
         return self._organisms
 
-    def get_species_count(self):
-        return self._species_count
+    def get_speciation_dict(self) -> dict:
+        """
+        Returns the dictionary of speciation events.
+        """
+        return self._speciation_dict
 
-    def get_lineage_tracker(self):
+    def get_lineage_tracker(self) -> LineageTracker:
+        """
+        Returns the LineageTracker object associated with tracking
+        lineages of the associated Organisms object.
+        """
         return self._lineage_tracker
 
     # Set methods
     def set_organisms(self, new_organisms):
+        """
+        Changes the organisms array within the Organisms object
+        """
         self._organisms = new_organisms
 
     def build_spatial_index(self):
@@ -149,33 +174,22 @@ class Organisms:
         - Records new species when first encountered
         - Updates environment birth count
         """
-        orgs = self._organisms
-        coords = np.stack((orgs['x_pos'], orgs['y_pos']), axis=1)
-        tree = self._pos_tree  # cKDTree built on coords
+        # Find which organisms are able to reproduce and determine costs
+        parents, reproduction_costs, parent_mask = self._determine_valid_parents()
 
-        # Compute distance to nearest other organism
-        dists, _ = tree.query(coords, k=2)
-        nearest_dist = dists[:, 1]
-        safe_mask = nearest_dist >= 7.5
-
-        # Identify parents with enough energy
-        energy = orgs['energy']
-        cost = orgs['fertility_rate'] * orgs['size'] * 10
-        reproducing = energy > cost
-        parent_mask = reproducing & safe_mask
+        # No valid parents means we stop right here
         if not np.any(parent_mask):
-            return
-
-        parents = orgs[parent_mask]
-        reproduction_costs = cost[parent_mask]
+            return 
 
         # Single offspring per parent, randomized offset
         num_parents = parents.shape[0]
-        offset = np.random.uniform(-20, 20, size=(num_parents, 2))
+        offset = self.sample_circular_offsets(num_parents, REPRODUCTION_PROXIMITY_CONST)
         offspring = np.empty(num_parents, dtype=self._organism_dtype)
 
-        # Inherit and possibly mutate traits
+        # Inherit parent traits  
         copy_parent_fields(parents, offspring)
+        
+        # Chance of mutating traits based on a mask
         flip_mask = (np.random.rand(num_parents) < 0.01).astype(bool)
         if flip_mask.any():
             names = random_name_generation(flip_mask.sum())
@@ -189,37 +203,116 @@ class Organisms:
         # Position offspring within bounds
         p_coords = np.stack((parents['x_pos'], parents['y_pos']), axis=1).astype(np.float32)
         raw_positions = p_coords + offset
-        width, length = self._width, self._length
-        offspring['x_pos'] = np.clip(raw_positions[:, 0], 0, width - 1)
-        offspring['y_pos'] = np.clip(raw_positions[:, 1], 0, length - 1)
+        offspring['x_pos'] = np.clip(raw_positions[:, 0], 0, self._width - 1)
+        offspring['y_pos'] = np.clip(raw_positions[:, 1], 0, self._length - 1)
 
         # Assign unique IDs
         self.increment_p_id_and_c_id(offspring, num_parents, parents)
+        
         # Record new species first occurrences
+        self._log_speciation(offspring,flip_mask)
+
+        # Finalize births
+        self._env.add_births(offspring.shape[0])
+        self._organisms = np.concatenate((self._organisms, offspring))
+
+    def _log_speciation(self, offspring, flip_mask):
+        """
+        Announces when a speciation event occurs and records the new species.
+        The generation that the new species arose is also documented.
+        """
         gen = self._env.get_generation()
         for sp, c_id, p_id in zip(
             offspring['species'][flip_mask],
             offspring['c_id'][flip_mask],
             offspring['p_id'][flip_mask]
         ):
-            if sp not in self._species_count:
-                self._species_count[sp] = [int(c_id), int(p_id), gen]
+            if sp not in self._speciation_dict:
+                self._speciation_dict[sp] = [int(c_id), int(p_id), gen]
                 print(f"New species added: {sp} (gen {gen})")
 
-        # Finalize births
-        self._env.add_births(offspring.shape[0])
-        self._organisms = np.concatenate((self._organisms, offspring))
+    def _determine_valid_parents(self
+        ) -> Tuple[
+            np.ndarray, 
+            np.ndarray, 
+            np.ndarray
+        ]:
+        """
+        Determines which organisms are eligible to reproduce.
+        - Eligible organisms cannot have another organism within 7.5 units of them
+            -This will be changed to a global constant later 
+        - Must have greater energy than size * fertility rate * 10
+            -Can also modify the base reproducing threshhold to a global constant
+        Returns:
+        --------
+        - np.ndarray: Array of organisms that will reproduce
+        - np.ndarray: Associated reproduction costs for each reproducing organism
+        - np.ndarray: Boolean mask identifying which organisms are eligible for reproduction
+        """
+        orgs = self._organisms
+        coords = np.stack((orgs['x_pos'], orgs['y_pos']), axis=1)
+        tree = self._pos_tree  # cKDTree built on coords
 
-    def spawn_initial_organisms(self, number_of_organisms: int,
-                                randomize: bool = False) -> int:
+        # Compute distance to nearest other organism
+        dists, idxs = tree.query(coords, k=2)
+        nearest_dist = dists[:, 1]
+        nearest_idx  = idxs[:, 1]
+
+        #Keep this for later, it's turned off right now
+        same_species = orgs['species'] == orgs['species'][nearest_idx]
+
+        # only apply the proximity rule when it's the same species:
+        # — if same_species AND too close ⇒ unsafe (False)
+        # — otherwise ⇒ safe (True)
+        # NOT CURRENTLY APPLIED, NEED TO ADD   | (~same_species)
+        safe_mask = (nearest_dist >= REPRODUCTION_PROXIMITY_CONST)
+
+        # Identify parents with enough energy
+        energy = orgs['energy']
+        cost = orgs['fertility_rate'] * orgs['size'] * 10
+        reproducing = energy > cost
+        parent_mask = reproducing & safe_mask
+        if not np.any(parent_mask):
+            return (
+                np.zeros(0, dtype=self._organism_dtype), 
+                np.zeros(0, dtype=np.float32), 
+                np.zeros(0, dtype=bool)
+            )
+        return orgs[parent_mask], cost[parent_mask], parent_mask
+
+    def sample_circular_offsets(self, num_offspring, reproduction_proximity_constant):
+        """
+        Spawn children further away than the constant, but only so much as twice
+        as far away as the reproduction proximity constant.
+        """
+        R_inner = reproduction_proximity_constant
+        R_outer = 2 * reproduction_proximity_constant
+
+        # 1) Sample squared‐radii uniformly so area is uniform
+        r2 = np.random.uniform(R_inner**2, R_outer**2, size=num_offspring)
+        r  = np.sqrt(r2)
+
+        # 2) Sample angles uniformly from 0 to 2π
+        theta = np.random.uniform(0, 2*np.pi, size=num_offspring)
+
+        # 3) Convert to Cartesian offsets
+        x = r * np.cos(theta)
+        y = r * np.sin(theta)
+
+        return np.stack((x, y), axis=1)  # shape (num_offspring, 2)
+
+    def spawn_initial_organisms(self, 
+        number_of_organisms:    int,
+        randomize:              bool = False
+        ) -> int:
         """
         Spawns the initial organisms in the simulation.
         Organism stats can be randomized if desired.
         Updates the birth counter in the environment.
 
-        :param number_of_organisms: Number of organisms to spawn
-        :param randomize: Request to randomize stats of spawned organisms
-        :returns: how many organisms were actually placed
+        :param number_of_organisms: Number of organisms to spawn (int)
+        :param randomize:  Request to randomize stats of spawned organisms (bool)
+        :returns: how many organisms were actually placed (int)
         """
         # --- get environment info ---
         env_width = self._width
@@ -236,8 +329,6 @@ class Organisms:
                 camouflage_arr,
                 defense_arr,
                 attack_arr,
-
-                # — Sensory —
                 vision_arr,
 
                 # — Metabolic parameters —
@@ -386,46 +477,61 @@ class Organisms:
         penalty = (swim_only & land_mask) | (walk_only & ~land_mask)
 
         # subtract 0.1 * metabolism_rate for each violation
-        orgs['energy'][penalty] -= 0.1 * orgs['metabolism_rate'][penalty]
+        orgs['energy'][penalty] -= 15 * orgs['metabolism_rate'][penalty]
 
-    def compute_terrain_avoidance(self, coords: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
-        """
-        Given an (N,2) array of positions, compute per‐organism
-        avoidance vectors for water and land based on the 4‐neighborhood.
-        
-        Returns:
-            avoid_land  : np.ndarray of shape (N,2)
-            avoid_water : np.ndarray of shape (N,2)
-        """
+    def compute_terrain_avoidance(self, coords: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
         N = coords.shape[0]
+        w, h = self._env.get_terrain().shape[1], self._env.get_terrain().shape[0]
         terrain = self._env.get_terrain()
-        width, length = self._width, self._length
-        dirs = self._dirs  # shape (4,2)
+        # 9‐neighbor offsets
+        offsets = np.array([[-0.5, -0.5], [-0.5, 0.0], [-0.5, 0.5],
+                            [ 0.0, -0.5], [ 0.0, 0.0], [ 0.0, 0.5],
+                            [ 0.5, -0.5], [ 0.5, 0.0], [ 0.5, 0.5]])
 
-        # generate neighbor samples: shape (N,4,2)
-        samples = coords[:, None, :] + dirs[None, :, :]
+        # sample positions & clip
+        patches = coords[:, None, :] + offsets[None, :, :]
+        patches[...,0] = np.clip(patches[...,0], 0, w-1)
+        patches[...,1] = np.clip(patches[...,1], 0, h-1)
 
-        # map to integer grid indices
-        ix = samples[..., 0].astype(int)
-        iy = samples[..., 1].astype(int)
+        # sample terrain to build masks
+        tv = map_coordinates(terrain,
+                             [patches[...,1].ravel(), patches[...,0].ravel()],
+                             order=1).reshape(N,9)
+        water_mask = (tv < 0)        # (N,9)
+        land_mask  = ~water_mask     # (N,9)
 
-        # mask out‐of‐bounds
-        valid = (
-            (ix >= 0) & (ix < width) &
-            (iy >= 0) & (iy < length)
-        )  # shape (N,4)
+        # build raw direction vectors
+        deltas = patches - coords[:,None,:]    # (N,9,2)
+        raw_water = -(deltas * water_mask[...,None]).sum(axis=1)  # (N,2)
+        raw_land  = -(deltas * land_mask[...,None]).sum(axis=1)   # (N,2)
 
-        # look up terrain, fill invalid with nan
-        tiles = np.full((N, 4), np.nan, dtype=np.float32)
-        tiles[valid] = terrain[iy[valid], ix[valid]]
 
-        # water‐avoidance: push opposite dirs wherever terrain<0
-        mask_water = tiles < 0
-        avoid_water = - (dirs[None, :, :] * mask_water[..., None]).sum(axis=1)
+        dist_to_water = distance_transform_edt(~water_mask)
+        dist_to_land  = distance_transform_edt( land_mask)
 
-        # land‐avoidance: push opposite dirs wherever terrain>=0
-        mask_land = tiles >= 0
-        avoid_land = - (dirs[None, :, :] * mask_land[..., None]).sum(axis=1)
+        # normalize directions (avoid div0)
+        def unit(v):
+            norm = np.linalg.norm(v, axis=1, keepdims=True) + 1e-8
+            return v / norm
+
+        u_water = unit(raw_water)
+        u_land  = unit(raw_land)
+
+        # sample distance‐to‐forbidden‐terrain
+        d_water = map_coordinates(dist_to_water, [coords[:,1], coords[:,0]], order=1)
+        d_land  = map_coordinates(dist_to_land,  [coords[:,1], coords[:,0]], order=1)
+
+        # magnitude scaling: asymptotic to F_max
+        F_max = 1000.0
+        K     = 500.0   # so K / 0.5 == 1000
+        eps   = 1e-3
+
+        mag_water = np.minimum(F_max, K / (d_water + eps))  # (N,)
+        mag_land  = np.minimum(F_max, K / (d_land  + eps))  # (N,)
+
+        # final forces
+        avoid_water = u_water * mag_water[:,None]
+        avoid_land  = u_land  * mag_land [:,None]
 
         return avoid_land, avoid_water
 
@@ -446,177 +552,41 @@ class Organisms:
             return
 
         self.apply_terrain_penalties()
-
-        width, length = self._width, self._length
-        coords = np.stack((orgs['x_pos'], orgs['y_pos']), axis=1)
-
-        vision_radii = orgs['vision']
-        neigh_lists = self._pos_tree.query_ball_point(coords, vision_radii, workers=-1)
-
+        coords, neigh_lists = get_coords_and_neighbors(orgs, self._pos_tree)
         avoid_land, avoid_water = self.compute_terrain_avoidance(coords)
 
-        # —––––––– grab items once, outside of any per-organism loop –––––––—
-        diet_type = orgs['diet_type']
-        vision = orgs['vision']
-        attack = orgs['attack']
-        defense = orgs['defense']
-        pack_flag = orgs['pack_behavior']
-        species = orgs['species']
-        fly_flag = orgs['fly']
-        swim_flag = orgs['swim']
-        walk_flag = orgs['walk']
-        speed = orgs['speed']
-
-        def _compute(i, pos, neighs, width, length):
-            # pull out “my” values once
-            my = orgs[i]
-            my_diet = my['diet_type']
-            my_cam = my['camouflage']
-            my_att = my['attack']
-            my_def = my['defense']
-            my_spc = my['species']
-            my_pack = pack_flag[i]
-            my_fly = fly_flag[i]
-            my_swim = swim_flag[i]
-            my_walk = walk_flag[i]
-            my_speed = speed[i]
-            if my_diet == 'Photo':
-                my['energy'] += 0.25
-                my_def = 0
-                my_att = 0
-                move_vec = np.zeros(2, dtype=np.float32)
-
-                return move_vec
-
-            # make neighbors a NumPy array of ints
-            neighs = np.asarray(neighs, dtype=int)
-
-            # 1) camouflage filter
-            mask_valid = (neighs != i) & (vision[neighs] >= my_cam)
-            valid = neighs[mask_valid]
-
-            # 2) pack_mates if pack_behavior array isn’t empty
-            if pack_flag.shape[0] > 0:
-                pack_mates = valid[pack_flag[valid]]
-
-            # allocate movement accumulator
-            move_vec = np.zeros(2, dtype=np.float32)
-
-            # — behavioral overrides (pack) —
-            if my_pack:
-                steer = np.zeros(2, dtype=np.float32)
-
-                # 1) compute net strengths against each neighbor in `valid`
-                non_pack_mask = ~pack_flag[valid]       # True for neighbors that are NOT pack mates
-
-                my_net    = my_att - defense[valid]     # our attack minus their defense
-                their_net = attack[valid] - my_def      # their attack minus our defense
-
-                # now require non-pack AND the appropriate net comparison
-                host_mask = non_pack_mask & (their_net > my_net)     # if their net > our net → hostile
-                prey_mask = non_pack_mask & (my_net    > their_net)  # if our net > their net → prey
-      
-
-                hostiles = valid[host_mask]
-                if hostiles.size > 0:
-                    center = coords[hostiles].mean(axis=0)
-                    steer += (pos - center)
-                else:
-                    prey = valid[prey_mask]
-                    if prey.size > 0:
-                        center = coords[prey].mean(axis=0)
-                        steer += (center - pos)
-                    else:
-                        # c) cohesion + gentle separation
-                        if pack_mates.size > 0:
-                            center = coords[pack_mates].mean(axis=0)
-                            steer += (center - pos)
-
-                            dists = coords[pack_mates] - pos
-                            norms = np.linalg.norm(dists, axis=1)
-                            close = norms < SEPARATION_RADIUS
-                            if close.any():
-                                repulse = -np.mean(dists[close], axis=0)
-                                steer += repulse * SEPARATION_WEIGHT
-
-                # terrain avoidance
-                if not my_swim:
-                    steer += WATER_PUSH * avoid_water[i]
-                if not my_walk:
-                    steer += LAND_PUSH * avoid_land[i]
-
-                # normalize & scale by speed
-                norm = np.linalg.norm(steer)
-                step = (steer / norm) * \
-                    my_speed if norm > 0 else np.zeros(2, np.float32)
-
-                new = pos + step
-                new[0] = np.clip(new[0], 0, width - 1)
-                new[1] = np.clip(new[1], 0, length - 1)
-                return new
-
-            # — social steering (non-pack) —
-            if my_fly:
-                pool = valid[fly_flag[valid]]
-            else:
-                pool = valid
-
-            # assume `pool` is already valid subset
-            my_net_pool    = my_att - defense[pool]
-            their_net_pool = attack[pool] - my_def
-
-            host_mask = their_net_pool > my_net_pool
-            prey_mask = my_net_pool    > their_net_pool
-
-            hostiles = pool[host_mask]
-            prey     = pool[prey_mask]
-
-            if hostiles.size > 0:
-                move_vec += (pos - coords[hostiles]).mean(axis=0)
-            if prey.size > 0:
-                move_vec += (coords[prey] - pos).mean(axis=0)
-
-            # crowd repulsion
-            CROWD_PUSH = 0.5 * my_speed
-            same_mask = species[valid] == my_spc
-            same = valid[same_mask]
-            if same.size > 0:
-                repulse = np.mean(pos - coords[same], axis=0)
-                move_vec += CROWD_PUSH * repulse
-
-            # terrain avoidance
-
-            if not my_swim:
-                move_vec += WATER_PUSH * avoid_water[i]
-            if not my_walk:
-                move_vec += LAND_PUSH * avoid_land[i]
-
-            # normalize & scale
-            norm = np.linalg.norm(move_vec)
-            step = (move_vec / norm) * \
-                my_speed if norm > 0 else np.zeros(2, np.float32)
-
-            new = pos + step
-            new[0] = np.clip(new[0], 0, width - 1)
-            new[1] = np.clip(new[1], 0, length - 1)
-            return new
-        old_coords = coords
-        # map across all organisms
-
-        new_pos = np.array([
-            _compute(i, coords[i], neigh_lists[i], width, length)
-            for i in range(N)
-        ], dtype=np.float32)
-
-
-        non_photo = orgs['diet_type'] != 'Photo'
-        orgs['x_pos'][non_photo] = new_pos[non_photo, 0]
-        orgs['y_pos'][non_photo] = new_pos[non_photo, 1]
-        dists = np.linalg.norm(new_pos[non_photo] - old_coords[non_photo], axis=1)
-        move_costs = 0.01 * dists * orgs['metabolism_rate'][non_photo]
-        orgs['energy'][non_photo] -= move_costs
-
+        # Calculate new positions - currently passes alot of memory outside the class
+        new_pos = movement_compute(
+            orgs, 
+            coords, 
+            neigh_lists, 
+            self._width, 
+            self._length, 
+            avoid_land, 
+            avoid_water)
+        self.pay_energy_costs(orgs, new_pos, coords)
         self.build_spatial_index()
+
+    def pay_energy_costs(self,
+        organism_arr: np.ndarray,
+        new_pos_arr: np.ndarray,
+        old_coords_arr: np.ndarray,
+    ):
+        """
+        Function modifies energy of organisms in place.
+        - Energy cost is based on distance (not displacement yet)
+        - Energy cost is based on metabolism_rate
+        - Plants do not pay energy costs from movement
+            - Right now plants also cannot move
+        """
+        non_photo = organism_arr['diet_type'] != 'Photo'
+        photo = ~non_photo
+        organism_arr['x_pos'][non_photo] = new_pos_arr[non_photo, 0]
+        organism_arr['y_pos'][non_photo] = new_pos_arr[non_photo, 1]
+        dists = np.linalg.norm(new_pos_arr[non_photo] - old_coords_arr[non_photo], axis=1)
+        move_costs = 0.01 * dists * organism_arr['metabolism_rate'][non_photo]
+        organism_arr['energy'][non_photo] -= move_costs
+        organism_arr['energy'][photo] += ECO_ENERGY_CONST/(photo.shape[0])
 
     def resolve_attacks(self):
         """
@@ -629,22 +599,19 @@ class Organisms:
             return
 
         # --- 0) Extract flat arrays once ---
-        coords = np.stack((orgs['x_pos'], orgs['y_pos']), axis=1)  # (N,2)
-        att    = orgs['attack']      # (N,)
-        deff   = orgs['defense']
-        vision = orgs['vision']
-        pack   = orgs['pack_behavior']
-        fly = orgs['fly']
-        swim = orgs['swim']
-        walk = orgs['walk']
-        x_pos = orgs['x_pos']
-        y_pos = orgs['y_pos']
+        coords  = np.stack((orgs['x_pos'], orgs['y_pos']), axis=1)  # (N, 2)
+        att     = orgs['attack']                                    # (N,)
+        deff    = orgs['defense']
+        vision  = orgs['vision']
+        pack    = orgs['pack_behavior']
+        fly     = orgs['fly']
+        swim    = orgs['swim']
+        walk    = orgs['walk']
+        x_pos   = orgs['x_pos']
+        y_pos   = orgs['y_pos']
+        energy  = orgs['energy']
+
         terrain = self._env.get_terrain()
-        energy = orgs['energy']
-
-        # only use pack logic if any pack_behavior is True
-        use_pack = bool(pack.any())
-
         # --- 1) Ensure KD-Tree is fresh ---
         if self._pos_tree is None:
             self.build_spatial_index()
@@ -681,18 +648,34 @@ class Organisms:
         self._apply_damage(i,j,host,prey,my_net,their_net,energy)
 
     def _terrain_restrictions(
-        self,
-        i: np.ndarray,
-        j: np.ndarray,
-        fly_arr: np.ndarray,
-        swim_arr: np.ndarray,
-        walk_arr: np.ndarray,
-        x_pos: np.ndarray,
-        y_pos: np.ndarray,
-        terrain: np.ndarray
-    ) -> tuple[np.ndarray, np.ndarray]:
+            self,
+            i:        np.ndarray,
+            j:        np.ndarray,
+            fly_arr:  np.ndarray,
+            swim_arr: np.ndarray,
+            walk_arr: np.ndarray,
+            x_pos:    np.ndarray,
+            y_pos:    np.ndarray,
+            terrain:  np.ndarray
+        ) -> Tuple[
+        np.ndarray, 
+        np.ndarray
+        ]:
         """
-        Returns filtered (i, j) pairs after applying water/land/fly/swim/walk rules.
+        :Parameters:
+        - i : Attackers : numpy array
+        - j : Defenders : numpy array
+        - fly_arr : boolean mask of orgs with flying property
+        - swim_arr : boolean mask of orgs with swimming property
+        - walk_arr : boolean mask of orgs with walking property
+        - x_pos : Array of x positions
+        - y_pos : Array of y positions
+        - terrain : f32 mask of terrain values
+        
+        :Returns:
+        - Tuple of filtered np.ndarray in a tuple of 
+        (attacker, nearest_attacker) pairs after 
+        applying water/land/fly/swim/walk rules.
         """
         # pull just the columns we need:
         xj = x_pos[j].astype(int)
@@ -708,7 +691,25 @@ class Organisms:
         keep = ~invalid
         return i[keep], j[keep]
 
-    def _diet_restrictions(self, i, j, diet):
+    def _diet_restrictions(self, 
+        i: np.ndarray, 
+        j: np.ndarray, 
+        diet: np.ndarray
+        )-> Tuple[
+            np.ndarray,
+            np.ndarray
+        ]:
+        """
+        :Parameters:
+        - i : Attackers : numpy array
+        - j : Defenders : numpy array
+        - diet : numpy array with diet types of attacking
+        and defending organisms
+        
+        : Returns: Tuple of (i,j)
+        - i : Attacker interactions filtered by diet type : numpy array
+        - j : Defender interactions filtered by diet type : numpy array
+        """
         dt_i, dt_j = diet[i], diet[j]
         invalid = np.zeros_like(i, dtype=bool)
 
@@ -719,11 +720,33 @@ class Organisms:
         keep = ~invalid
         return i[keep], j[keep]
 
-    def _classify_engagement(self, i, j, att, deff, pack):
+    def _classify_engagement(self,
+        i:    np.ndarray,
+        j:    np.ndarray,
+        att:  np.ndarray,
+        deff: np.ndarray,
+        pack: np.ndarray
+    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+        """
+    Classifies engagements between organisms based on attack and defense values, 
+    considering pack behavior.
+
+    :param i: Indices of attackers (np.ndarray)
+    :param j: Indices of defenders (np.ndarray)
+    :param att: Attack values for organisms (np.ndarray)
+    :param deff: Defense values for organisms (np.ndarray)
+    :param pack: Pack behavior indicators (np.ndarray)
+    
+    :returns:
+    - np.ndarray: Mask for host engagements
+    - np.ndarray: Mask for prey engagements
+    - np.ndarray: Net attack values for attackers
+    - np.ndarray: Net attack values for defenders
+    """
         my_net    = att[i] - deff[j]
         their_net = att[j] - deff[i]
 
-        if pack.any():
+        if bool(pack.any()):
             non_pack = pack[i] & ~pack[j]
             host = (their_net > my_net) & non_pack
             prey = (my_net > their_net) & non_pack
@@ -736,24 +759,46 @@ class Organisms:
         prey &= (my_net > 0)
         return host, prey, my_net, their_net
 
-    def _apply_damage(self, i, j, host, prey, my_net, their_net, energy):
+
+    def _apply_damage(self, 
+        i:         np.ndarray, 
+        j:         np.ndarray, 
+        host:      np.ndarray, 
+        prey:      np.ndarray, 
+        my_net:    np.ndarray, 
+        their_net: np.ndarray, 
+        energy:    np.ndarray
+        ):
+        """
+        Applies damage to organisms based on host and prey interactions.
+
+        :param i: Indices of attackers (np.ndarray)
+        :param j: Indices of defenders (np.ndarray)
+        :param host: Mask for host engagements (np.ndarray)
+        :param prey: Mask for prey engagements (np.ndarray)
+        :param my_net: Net attack values for attackers (np.ndarray)
+        :param their_net: Net attack values for defenders (np.ndarray)
+        :param energy: Energy values for all organisms (np.ndarray)
+
+        :returns: None (modifies energy array in place)
+        """
         # Hostiles: j attacked i, damage = their_net
         if host.any():
             idx_i = i[host]
             idx_j = j[host]
             dmg   = their_net[host]
-            energy[idx_i] -= dmg
-            energy[idx_j] += dmg
+            energy[idx_i] -= 20 * dmg
+            energy[idx_j] += 20 * dmg
 
         # Prey: i attacked j, damage = my_net
         if prey.any():
             idx_i = i[prey]
             idx_j = j[prey]
             dmg   = my_net[prey]
-            energy[idx_j] -= dmg
-            energy[idx_i] += dmg
+            energy[idx_j] -= 20 * dmg
+            energy[idx_i] += 20 * dmg
 
-    def kill_border(self, margin: float = 0.03):
+    def kill_border(self, margin: float = 0.01):
         """
         Instantly kills (sets energy to 0 and removes) all organisms
         within `margin` fraction of the environment border.
@@ -781,7 +826,7 @@ class Organisms:
             return
 
         # set them to zero energy so remove_dead() will catch them
-        orgs['energy'][border_mask] = 0.0
+        orgs['energy'][border_mask] = -1000.0
 
     def remove_dead(self):
         """
@@ -798,9 +843,10 @@ class Organisms:
         return
 
     def increment_p_id_and_c_id(self, 
-        c_org_arr:np.ndarray,  
-        num_spawned:int,
-        p_org_arr:np.ndarray):
+        c_org_arr:   np.ndarray,  
+        num_spawned: int,
+        p_org_arr:   np.ndarray
+        ):
         """
         Increment id's for reproduction and spawning founders.
         May be used for lineage later.
@@ -841,9 +887,9 @@ class Organisms:
         print(f"[Meteor] Killed {len(indices)} organisms.")
 
 def random_name_generation(
-    num_to_gen: int,
-    min_syllables: int = 2,
-    max_syllables: int = 4
+    num_to_gen:     int,
+    min_syllables:  int = 2,
+    max_syllables:  int = 4
 ) -> np.ndarray:
     """
     Generate `num_to_gen` random species names and return them as a NumPy array.

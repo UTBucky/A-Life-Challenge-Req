@@ -4,6 +4,7 @@
 
 import pygame
 import numpy as np
+import hashlib
 from button import create_stop_start_button, create_save_button, create_load_button, create_skip_button, \
     create_hazard_button
 
@@ -56,6 +57,7 @@ class Viewer2D:
         self._skip_button = create_skip_button(self.screen, self.font)
         self._hazard_button = create_hazard_button(self.screen, self.font)
         self._meteor_struck = False
+        self._species_colors = {}
 
     def get_env(self):
         return self.env
@@ -155,6 +157,10 @@ class Viewer2D:
         for org in alive:
             x = int(org['x_pos'] * self.scale_x) + self.sidebar_width
             y = int(org['y_pos'] * self.scale_y)
+            species = org['species']
+            if isinstance(species, bytes):
+                species = species.decode()
+            color = self._generate_species_color(species)
 
             # pygame.draw.circle(self.screen, color, (x, y), 3)
             diet = org['diet_type'].decode() if isinstance(org['diet_type'], bytes) else org['diet_type']
@@ -166,25 +172,25 @@ class Viewer2D:
                     (x + r * np.cos(np.pi / 3 * i), y + r * np.sin(np.pi / 3 * i))
                     for i in range(6)
                 ]
-                pygame.draw.polygon(self.screen, (255, 255, 0), points)
+                pygame.draw.polygon(self.screen, color, points)
 
             elif diet == "Omni":
                 # White diamond
                 points = [(x, y - 5), (x - 5, y), (x, y + 5), (x + 5, y)]
-                pygame.draw.polygon(self.screen, (255, 255, 255), points)
+                pygame.draw.polygon(self.screen, color, points)
 
             elif diet == "Carn":
                 # Red square
-                pygame.draw.rect(self.screen, (255,   0,   0), pygame.Rect(x - 3, y - 3, 6, 6))
+                pygame.draw.rect(self.screen, color, pygame.Rect(x - 3, y - 3, 6, 6))
 
             elif diet == "Photo":
                 # Green circle
-                pygame.draw.circle(self.screen, (0, 255, 0), (x, y), 4)
+                pygame.draw.circle(self.screen, color, (x, y), 4)
 
             elif diet == "Parasite":
                 # Purple X shape (cross)
-                pygame.draw.line(self.screen, (160, 32, 240), (x - 3, y - 3), (x + 3, y + 3), 2)
-                pygame.draw.line(self.screen, (160, 32, 240), (x - 3, y + 3), (x + 3, y - 3), 2)
+                pygame.draw.line(self.screen, color, (x - 3, y - 3), (x + 3, y + 3), 2)
+                pygame.draw.line(self.screen, color, (x - 3, y + 3), (x + 3, y - 3), 2)
 
             else:
                 # Default fallback shape
@@ -295,6 +301,15 @@ class Viewer2D:
             radius=meteor.get_radius(),
             base_damage=meteor.get_base_damage()
         )
+
+    def _generate_species_color(self, species_name):
+        """Generates a unique color for each species name. Uses hashlib to make colors
+        deterministic across all simulations. Avoids very dark/black colors."""
+        if species_name not in self._species_colors:
+            h = int(hashlib.md5(species_name.encode()).hexdigest()[:6], 16)
+            color = ((h >> 16) & 255, (h >> 8) & 255, h & 255)
+            self._species_colors[species_name] = color
+        return self._species_colors[species_name]
 
     def handle_events(self):
         """

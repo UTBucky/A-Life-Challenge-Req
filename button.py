@@ -139,3 +139,17 @@ def create_skip_button(screen, font):
                          )
 
     return skip_button
+
+def create_hazard_button(screen, font):
+    """
+    Draws a button with 'Skip' text
+    Returns rectangle object for mouse click check
+    """
+    hazard_button = Button(pygame.Rect(10, 600, 100, 35),
+                         "Hazard",
+                         screen,
+                         color=(146, 38, 162),
+                         font=font
+                         )
+
+    return hazard_button

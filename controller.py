@@ -2,11 +2,12 @@ from environment import Environment
 from environment import generate_fractal_terrain
 from viewer2dp import Viewer2D
 from load_genes import load_genes_from_file
+from hazard import Meteor
 
 
 # Variables for setup/testing
-GRID_SIZE = 1000         # Determines size of environment
-NUM_ORGANISMS = 1000    # Attempt organism creation this many times
+GRID_SIZE = 800         # Determines size of environment
+NUM_ORGANISMS = 5000    # Attempt organism creation this many times
 
 
 def main():
@@ -23,6 +24,12 @@ def main():
     env.get_organisms()._gene_pool = gene_pool
     number_of_organisms = int(NUM_ORGANISMS)
     env.get_organisms().spawn_initial_organisms(number_of_organisms)
+
+    # Initialize meteor hazard with random location and passes it to env
+    meteor = Meteor()
+    terrain = env.get_terrain()
+    meteor.determine_random_location(env.get_width(), env.get_length(), terrain)
+    env.set_meteor(meteor)
 
     # Initialize PyGame visualization
     viewer = Viewer2D(env)

@@ -8,6 +8,7 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from Bio import Phylo
+from hazard import Meteor
 
 class Environment:
     """
@@ -31,6 +32,7 @@ class Environment:
         self._total_births = 0
         self._total_deaths = 0
         self._organisms = Organisms(self)
+        self._meteor = None
 
     # Get methods
     def get_width(self):
@@ -53,6 +55,12 @@ class Environment:
 
     def get_generation(self):
         return self._generation
+
+    def set_meteor(self, meteor):
+        self._meteor = meteor
+
+    def get_meteor(self):
+        return self._meteor
 
     # Set methods
     def set_terrain(self, terrain_mask: np.ndarray):

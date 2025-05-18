@@ -820,6 +820,26 @@ class Organisms:
             c_org_arr['p_id'] = c_org_arr['c_id'] = 0
             self._next_id = 1
 
+    def apply_meteor_damage(self, x: float, y: float, radius: float, base_damage: float = None):
+        """
+        Instantly kills any organism within `radius` of (x, y) by setting energy to 0.
+        """
+        if self._organisms.shape[0] == 0:
+            return
+
+        coords = np.stack((self._organisms['x_pos'], self._organisms['y_pos']), axis=1)
+
+        if self._pos_tree is None:
+            self.build_spatial_index()
+
+        indices = self._pos_tree.query_ball_point([x, y], radius)
+        if not indices:
+            return
+
+        # Set energy of all in radius to 0 — instant death
+        self._organisms['energy'][indices] = 0
+        print(f"[Meteor] Killed {len(indices)} organisms.")
+
 def random_name_generation(
     num_to_gen: int,
     min_syllables: int = 2,

@@ -82,7 +82,6 @@ class Viewer2D:
 
         pygame.display.flip()
         self.clock.tick(10)
-        self.timestep += 1
 
     def draw_terrain(self):
         """
@@ -214,7 +213,7 @@ class Viewer2D:
         Display generation counter
         """
         gen_text = self.font.render(
-            f"Generation: {self.timestep}", True, (255, 255, 255)
+            f"Generation: {self.env.get_generation()}", True, (255, 255, 255)
         )
         self.screen.blit(gen_text, (10, 10))
 
@@ -256,6 +255,11 @@ class Viewer2D:
                 if self._print_tree_button.get_rectangle().collidepoint(event.pos):
                     self._print_tree_button.print_phylo_tree(self.env)
                 
-                
+                if self._skip_button.get_rectangle().collidepoint(event.pos):
+                    self.skip_frames(5)
 
         return True
+
+    def skip_frames(self, n):
+        for i in range(n):
+            self.env.step()

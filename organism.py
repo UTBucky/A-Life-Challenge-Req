@@ -556,7 +556,7 @@ class Organisms:
         avoid_land, avoid_water = self.compute_terrain_avoidance(coords)
 
         # Calculate new positions - currently passes alot of memory outside the class
-        new_pos = movement_compute(
+        new_pos = unified_movement_compute(
             orgs, 
             coords, 
             neigh_lists, 

@@ -7,8 +7,8 @@ WATER_PUSH = 0.01
 LAND_PUSH = 0.01
 
 # Pack behavior constants
-SEPARATION_WEIGHT = 2
-SEPARATION_RADIUS = 1
+SEPARATION_WEIGHT = 200
+SEPARATION_RADIUS = 17
 
 #In-Place mutator
 def copy_valid_count( 
@@ -182,7 +182,7 @@ def mutate_offspring(
     walk_prob_arr = np.array([0.99, 0.01])                # Mostly walk, small chance not to
 
     # ---------------- Diet Type ----------------
-    diet_type_prob_arr = np.array([0.50, 0.20, 0.20, 0.05, 0.05])              # Herb, Omni, Carn, Photo, Parasite
+    diet_type_prob_arr = np.array([0.05, 0.20, 0.20, 0.50, 0.05])              # Herb, Omni, Carn, Photo, Parasite
 
     # ---------------- Reproduction Type ----------------
     reproduction_type_prob_arr = np.array([0.5, 0.5])  # Sexual vs Asexual
@@ -280,7 +280,7 @@ def initialize_default_traits(
                                 gene_pool['reproduction_type'][0],
                                 dtype='U15'
                             )
-    pack_behavior_arr      = np.full((n,), False, dtype=np.bool_)
+    pack_behavior_arr      = np.full((n,), True, dtype=np.bool_)
     symbiotic_arr          = np.full((n,), False, dtype=np.bool_)
     swim_arr               = np.full((n,), True, dtype=np.bool_)
     walk_arr               = np.full((n,), False,  dtype=np.bool_)
@@ -552,19 +552,20 @@ def get_coords_and_neighbors(
 
     return coords, neigh_lists
 
-# Returns new arrays # PACK BEHAVIOR DISABLED FOR NOW
-def movement_compute(
+
+
+def unified_movement_compute(
     organisms: np.ndarray,
-    coords: np.ndarray, 
-    neighs: np.ndarray, 
-    width:  int, 
+    coords: np.ndarray,
+    neighs: np.ndarray,
+    width: int,
     length: int,
-    avoid_land: np.ndarray, 
+    avoid_land: np.ndarray,
     avoid_water: np.ndarray
-    ):
+) -> np.ndarray:
     (
-    diet_type, vision, attack, defense, pack_flag, 
-    species, fly_flag, swim_flag, walk_flag, speed
+        diet_type, vision, attack, defense, pack_flag, 
+        species, fly_flag, swim_flag, walk_flag, speed
     ) = grab_move_arrays(organisms)
 
     avoidance_vec = np.zeros((organisms.shape[0], 2), dtype=np.float32)
@@ -576,9 +577,17 @@ def movement_compute(
     # Only apply the terrain avoidance where the mask is True
     avoidance_vec[cannot_fly_swim_mask] += WATER_PUSH * avoid_water[cannot_fly_swim_mask]
     avoidance_vec[cannot_fly_walk_mask] += LAND_PUSH * avoid_land[cannot_fly_walk_mask]
-    
-    neighbors = np.asarray(neighs)
-    
+
+    neighbours = np.asarray(neighs)
+
+    new_positions = np.zeros_like(coords, dtype=np.float32)
+
+    all_idxs     = np.arange(organisms.shape[0])
+    standard_idxs = all_idxs[~pack_flag]
+    pack_idxs     = all_idxs[ pack_flag]
+
+
+
     def _compute(orgs, index, pos, neighs, width, length, avoidance_arr):
         # pull out “my” values once
         my = orgs[index]
@@ -613,8 +622,6 @@ def movement_compute(
                 repulse /= norm
             move_vec += CROWD_PUSH * repulse
             return move_vec    
-    
-
 
         # 1) camouflage filter
         mask_valid = (neighs != index) & (vision[neighs] >= my_cam)
@@ -665,139 +672,113 @@ def movement_compute(
         new[1] = np.clip(new[1], 0, length - 1)
         return new
 
-    return np.array(
-        [
+    def move_pack_behavior(orgs, index, pos, neighs, width, length, avoidance_arr):
+        my = orgs[index]
+        my_diet = my['diet_type']
+        my_cam = my['camouflage']
+        my_att = my['attack']
+        my_def = my['defense']
+        my_spc = my['species']
+        my_fly = my['fly']
+        my_pack = pack_flag[index]
+        my_speed = speed[index]
+
+        neighs = np.asarray(neighs[index], dtype=int)
+        mask_valid = (neighs != index) & (vision[neighs] >= my_cam)
+        valid = neighs[mask_valid]
+
+        # 2) pack_mates if pack_behavior array isn’t empty
+        pack_mates = valid[pack_flag[valid]]
+        move_vec = np.zeros(2, dtype=np.float32)
+       
+        if my_diet == 'Photo':
+            my_def = 0
+            my_att = 0
+            move_vec = np.zeros(2, dtype=np.float32)
+            CROWD_PUSH = 0.0001 * my_speed
+            same_mask = species[valid] == my_spc
+            same = valid[same_mask]
+            if same.size > 0:
+                repulse = np.mean(pos - coords[same], axis=0)
+                move_vec += CROWD_PUSH * repulse
+            return move_vec
+
+        # — behavioral overrides (pack) —
+        if my_pack:
+
+            # 1) compute net strengths against each neighbor in `valid`
+            non_pack_mask = ~pack_flag[valid]       # True for neighbors that are NOT pack mates
+
+            my_net    = my_att - defense[valid]     # our attack minus their defense
+            their_net = attack[valid] - my_def      # their attack minus our defense
+
+            # now require non-pack AND the appropriate net comparison
+            host_mask = non_pack_mask & (their_net > my_net)     # if their net > our net → hostile
+            prey_mask = non_pack_mask & (my_net    > their_net)  # if our net > their net → prey
+
+
+            hostiles = valid[host_mask]
+            if hostiles.size > 0:
+                center = coords[hostiles].mean(axis=0)
+                move_vec += (pos - center)
+            else:
+                prey = valid[prey_mask]
+                if prey.size > 0:
+                    center = coords[prey].mean(axis=0)
+                    move_vec += (center - pos)
+                else:
+                    # c) cohesion + gentle separation
+                    if pack_mates.size > 0:
+                        center = coords[pack_mates].mean(axis=0)
+                        move_vec += (center - pos)
+
+                        dists = coords[pack_mates] - pos
+                        norms = np.linalg.norm(dists, axis=1)
+                        close = norms < SEPARATION_RADIUS
+                        if close.any():
+                            repulse = -np.mean(dists[close], axis=0)
+                            move_vec += repulse * SEPARATION_WEIGHT
+
+            #print(move_vec, 'pre pack move arr 1111')
+            move_vec += avoidance_arr[index]
+            #print(move_vec, 'post array of pack move 2222')
+
+            # normalize & scale by speed
+            norm = np.linalg.norm(move_vec)
+            step = (move_vec / norm) * \
+                my_speed if norm > 0 else np.zeros(2, np.float32)
+
+            new = pos + step
+            new[0] = np.clip(new[0], 0, width - 1)
+            new[1] = np.clip(new[1], 0, length - 1)
+            return new
+
+    if standard_idxs.size:
+        new_positions[standard_idxs] = np.array([
             _compute(
-                organisms, 
-                i, 
-                coords[i], 
-                neighbors, 
-                width, 
+                organisms,
+                i,
+                coords[i],
+                neighbours,
+                width,
                 length,
                 avoidance_vec
-            ) 
-            for i in range(organisms.shape[0])
-        ], 
-        dtype=np.float32
-    )
-
-# def pack_movement_compute(
-#     organisms: np.ndarray,
-#     coords: np.ndarray, 
-#     neighs: np.ndarray, 
-#     width:  int, 
-#     length: int,
-#     avoid_land: np.ndarray, 
-#     avoid_water: np.ndarray
-#     ):
-#     (
-#     diet_type, vision, attack, defense, pack_flag, 
-#     species, fly_flag, swim_flag, walk_flag, speed
-#     ) = grab_move_arrays(organisms)
-
-#     avoidance_vec = np.zeros((organisms.shape[0], 2), dtype=np.float32)
-
-#     cannot_fly_swim_mask = (~fly_flag & ~swim_flag)
-#     cannot_fly_walk_mask = (~fly_flag & ~walk_flag)
-    
-#     # === Apply Avoidance Logic Based on Masks ===
-#     # Only apply the terrain avoidance where the mask is True
-#     avoidance_vec[cannot_fly_swim_mask] += WATER_PUSH * avoid_water[cannot_fly_swim_mask]
-#     avoidance_vec[cannot_fly_walk_mask] += LAND_PUSH * avoid_land[cannot_fly_walk_mask]
-
-#     def move_pack_behavior(orgs, index, pos, neighs, width, length, avoidance_arr):
-#         my = orgs[index]
-#         my_diet = my['diet_type']
-#         my_cam = my['camouflage']
-#         my_att = my['attack']
-#         my_def = my['defense']
-#         my_spc = my['species']
-#         my_fly = my['fly']
-#         my_pack = pack_flag[index]
-#         my_speed = speed[index]
-
-#         neighs = np.asarray(neighs, dtype=int)
-#         mask_valid = (neighs != index) & (vision[neighs] >= my_cam)
-#         valid = neighs[mask_valid]
-
-#         # 2) pack_mates if pack_behavior array isn’t empty
-#         if pack_flag.shape[0] > 0:
-#             pack_mates = valid[pack_flag[valid]]
+            )
+            for i in standard_idxs
+        ], dtype=np.float32)
         
-#         if my_diet == 'Photo':
-#             my_def = 0
-#             my_att = 0
-#             move_vec = np.zeros(2, dtype=np.float32)
-#             CROWD_PUSH = 0.0001 * my_speed
-#             same_mask = species[valid] == my_spc
-#             same = valid[same_mask]
-#             if same.size > 0:
-#                 repulse = np.mean(pos - coords[same], axis=0)
-#                 move_vec += CROWD_PUSH * repulse
-#             return move_vec
+    if pack_idxs.size:
+        new_positions[pack_idxs] = np.array([
+            move_pack_behavior(
+                organisms,
+                i,
+                coords[i],
+                neighbours,
+                width,
+                length,
+                avoidance_vec
+            )
+            for i in pack_idxs
+        ], dtype=np.float32)
 
-#         # — behavioral overrides (pack) —
-#         if my_pack:
-
-#             # 1) compute net strengths against each neighbor in `valid`
-#             non_pack_mask = ~pack_flag[valid]       # True for neighbors that are NOT pack mates
-
-#             my_net    = my_att - defense[valid]     # our attack minus their defense
-#             their_net = attack[valid] - my_def      # their attack minus our defense
-
-#             # now require non-pack AND the appropriate net comparison
-#             host_mask = non_pack_mask & (their_net > my_net)     # if their net > our net → hostile
-#             prey_mask = non_pack_mask & (my_net    > their_net)  # if our net > their net → prey
-
-
-#             hostiles = valid[host_mask]
-#             if hostiles.size > 0:
-#                 center = coords[hostiles].mean(axis=0)
-#                 move_vec += (pos - center)
-#             else:
-#                 prey = valid[prey_mask]
-#                 if prey.size > 0:
-#                     center = coords[prey].mean(axis=0)
-#                     move_vec += (center - pos)
-#                 else:
-#                     # c) cohesion + gentle separation
-#                     if pack_mates.size > 0:
-#                         center = coords[pack_mates].mean(axis=0)
-#                         move_vec += (center - pos)
-
-#                         dists = coords[pack_mates] - pos
-#                         norms = np.linalg.norm(dists, axis=1)
-#                         close = norms < SEPARATION_RADIUS
-#                         if close.any():
-#                             repulse = -np.mean(dists[close], axis=0)
-#                             move_vec += repulse * SEPARATION_WEIGHT
-
-#             #print(move_vec, 'pre pack move arr 1111')
-#             move_vec += avoidance_arr[index]
-#             #print(move_vec, 'post array of pack move 2222')
-
-#             # normalize & scale by speed
-#             norm = np.linalg.norm(move_vec)
-#             step = (move_vec / norm) * \
-#                 my_speed if norm > 0 else np.zeros(2, np.float32)
-
-#             new = pos + step
-#             new[0] = np.clip(new[0], 0, width - 1)
-#             new[1] = np.clip(new[1], 0, length - 1)
-#             return new
-    
-#     return np.array(
-#         [
-#             move_pack_behavior(
-#                 organisms[pack_flag], 
-#                 i, 
-#                 coords[i], 
-#                 neighs[i], 
-#                 width, 
-#                 length,
-#                 avoidance_vec
-#             ) 
-#             for i in range(organisms.shape[0])
-#         ], 
-#         dtype=np.float32
-#     )
+    return new_positions

@@ -13,12 +13,57 @@ class DummyOrgs:
     Dummy Organisms-like object to stand in for env._organisms
     and record calls to its methods.
     """
+
     def __init__(self):
         # record of method calls
+        self._organism_dtype = np.dtype([
+            # species label
+            ('species',           np.str_,   15),
+
+            # — MorphologicalGenes (size, camouflage, defense, attack, vision) —
+            ('size',              np.float32),
+            ('camouflage',        np.float32),
+            ('defense',           np.float32),
+            ('attack',            np.float32),
+            ('vision',            np.float32),
+
+            # — MetabolicGenes (metabolism_rate, nutrient_efficiency, diet_type) —
+            ('metabolism_rate',   np.float32),
+            ('nutrient_efficiency', np.float32),
+            ('diet_type',         np.str_,   15),
+
+            # — ReproductionGenes (fertility_rate, offspring_count, reproduction_type) —
+            ('fertility_rate',    np.float32),
+            ('offspring_count',   np.int32),
+            ('reproduction_type', np.str_,   15),
+
+            # — BehavioralGenes (pack_behavior, symbiotic) —
+            ('pack_behavior',     np.bool_),
+            ('symbiotic',         np.bool_),
+
+            # — LocomotionGenes (swim, walk, fly, speed) —
+            ('swim',              np.bool_),
+            ('walk',              np.bool_),
+            ('fly',               np.bool_),
+            ('speed',             np.float32),
+
+            # — Simulation bookkeeping —
+            ('energy',            np.float32),
+            ('x_pos',             np.float32),
+            ('y_pos',             np.float32),
+
+                # — Lineage tracking —
+            ('p_id',                  np.int32),
+            ('c_id',                  np.int32),
+            ('generation',            np.int32),
+            ('current_age',               np.int8),
+            ('max_age',           np.int8)
+        ])
         self.calls = []
         # single‐organism structured array with an 'energy' field
-        self.organisms = np.zeros(1, dtype=[('energy', np.float32)])
+        self.organisms = np.zeros(1, dtype=self._organism_dtype)
         self.organisms['energy'][0] = 1.0
+        self.organisms['current_age'][0] = 0
 
     def build_spatial_index(self):
         self.calls.append('build_spatial_index')

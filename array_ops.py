@@ -33,6 +33,8 @@ def copy_valid_count(
     fly_arr:                    np.ndarray,
     speed_arr:                  np.ndarray,
     energy_arr:                 np.ndarray,
+    current_age_arr:            np.ndarray,
+    max_age_arr:                np.ndarray,
     ) -> np.ndarray:
     """
     Sets the spawned founding organism attributes with the values generated in the inputted
@@ -59,6 +61,8 @@ def copy_valid_count(
         fly_arr: np.ndarray
         speed_arr: np.ndarray
         energy_arr: np.ndarray
+        current_age_arr: np.ndarray
+        max_age_arr: np.ndarray
     """
     spawned['species']            = species_arr[:valid_count]
     spawned['size']               = size_arr[:valid_count]
@@ -80,7 +84,9 @@ def copy_valid_count(
     spawned['speed']              = speed_arr[:valid_count]
     spawned['generation']         = np.full(valid_count, 0).astype(np.int32)
     if energy_arr.any():
-        spawned['energy']             = energy_arr[:valid_count]
+        spawned['energy']         = energy_arr[:valid_count]
+    spawned['current_age']        = current_age_arr[:valid_count]
+    spawned['max_age']            = max_age_arr[:valid_count]
     return spawned
 
 # In-Place mutator
@@ -107,6 +113,8 @@ def copy_parent_fields(
     offspring['fly']               = parents['fly']
     offspring['speed']             = parents['speed']
     offspring['generation']        = parents['generation'] + 1
+    offspring['current_age']       = np.zeros((parents.shape[0],), dtype=np.int8)
+    offspring['max_age']           = parents['max_age']
     return 
 
 # In-Place mutator 
@@ -171,6 +179,14 @@ def mutate_offspring(
                                                     size=m
                                                 ).astype(np.float32)
 
+    offspring['current_age'][flip_mask]               = np.zeros((m,)
+                                                ).astype(np.int8)
+
+    offspring['max_age'][flip_mask]            += np.random.uniform(
+                                                    low= -0.1,
+                                                    high= 0.1,
+                                                    size=m,
+                                                    ).astype(np.int8)
 
     # ---------------- Behavioral Genes ----------------
     pack_behavior_prob_arr = np.array([0.99, 0.01])       # False, True
@@ -236,6 +252,7 @@ def mutate_offspring(
                                                     p=fly_prob_arr
                                                 ).astype(np.bool_)
 
+
 # Returns new arrays
 def initialize_default_traits(
     n: int,
@@ -244,7 +261,8 @@ def initialize_default_traits(
     np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray,
     np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray,
     np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray,
-    np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray
+    np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray,
+    np.ndarray, np.ndarray
 ]:
     """
     Create default (non-randomized) trait arrays for n organisms,
@@ -254,7 +272,8 @@ def initialize_default_traits(
         vision_arr, metabolism_rate_arr, nutrient_efficiency_arr,
         diet_type_arr, fertility_rate_arr, offspring_count_arr,
         reproduction_type_arr, pack_behavior_arr, symbiotic_arr,
-        swim_arr, walk_arr, fly_arr, speed_arr, energy_arr
+        swim_arr, walk_arr, fly_arr, speed_arr, energy_arr, current_age_arr,
+        max_age_arr
     """
     if n <= 0:
         raise ValueError("Number of traits 'n' must be greater than 0.")
@@ -287,6 +306,8 @@ def initialize_default_traits(
     fly_arr                = np.full((n,), False, dtype=np.bool_)
     speed_arr              = np.full((n,), 1, dtype=np.float32)
     energy_arr             = np.full((n,), 10,  dtype=np.float32)
+    current_age_arr        = np.full((n,), 0, dtype=np.float32)
+    max_age_arr            = np.full((n,), 70,  dtype=np.float32)
     #
     # Return in a tuple is ok because it's a wrapping of pointers
     #
@@ -298,7 +319,8 @@ def initialize_default_traits(
         vision_arr, metabolism_rate_arr, nutrient_efficiency_arr,
         diet_type_arr, fertility_rate_arr, offspring_count_arr,
         reproduction_type_arr, pack_behavior_arr, symbiotic_arr,
-        swim_arr, walk_arr, fly_arr, speed_arr, energy_arr
+        swim_arr, walk_arr, fly_arr, speed_arr, energy_arr, current_age_arr,
+        max_age_arr
     )
 
 # Returns new arrays
@@ -309,7 +331,8 @@ def initialize_random_traits(
     np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray,
     np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray,
     np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray,
-    np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray
+    np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray,
+    np.ndarray, np.ndarray
 ]:
     """
     Create randomized trait arrays for n organisms based on gene_pool.
@@ -335,6 +358,8 @@ def initialize_random_traits(
     - fly_arr                  : Capability to fly.
     - speed_arr                : Movement speed.
     - energy_arr               : Initial energy value.
+    - current_age_arr          : current age value - starts at 0
+    - max_age_arr              : max value that an organism can reach before dying
     """
     if n <= 0:
         raise ValueError("Number of traits 'n' must be greater than 0.")
@@ -420,13 +445,17 @@ def initialize_random_traits(
     # ---------------- Speed & Initial Energy ----------------
     speed_arr  = uni('speed')
     energy_arr = np.random.uniform(10, 30, size=(n,)).astype(np.float32)
+    
+    current_age_arr        = np.full((n,), 0, dtype=np.float32)
+    max_age_arr            = uni('max_age')
 
     return (
         species_arr, size_arr, camouflage_arr, defense_arr, attack_arr,
         vision_arr, metabolism_rate_arr, nutrient_efficiency_arr,
         diet_type_arr, fertility_rate_arr, offspring_count_arr,
         reproduction_type_arr, pack_behavior_arr, symbiotic_arr,
-        swim_arr, walk_arr, fly_arr, speed_arr, energy_arr
+        swim_arr, walk_arr, fly_arr, speed_arr, energy_arr, current_age_arr,
+        max_age_arr
     )
 
 # Returns new arrays
@@ -729,16 +758,19 @@ def unified_movement_compute(
                 else:
                     # c) cohesion + gentle separation
                     if pack_mates.size > 0:
-                        center = coords[pack_mates].mean(axis=0)
-                        move_vec += (center - pos)
-
-                        dists = coords[pack_mates] - pos
-                        norms = np.linalg.norm(dists, axis=1)
-                        close = norms < SEPARATION_RADIUS
-                        if close.any():
-                            repulse = -np.mean(dists[close], axis=0)
-                            move_vec += repulse * SEPARATION_WEIGHT
-
+                        # vectors from self to each mate
+                        deltas = coords[pack_mates] - pos             # shape (M,2)
+                        dists  = np.linalg.norm(deltas, axis=1)       # shape (M,)
+                        # build unit directions safely
+                        mask   = dists > 1e-6
+                        dirs   = np.zeros_like(deltas)
+                        dirs[mask] = deltas[mask] / dists[mask, None]
+                        # compute error relative to desired separation
+                        errors = dists - SEPARATION_RADIUS           # neg→too close, pos→too far
+                        # spring forces: error × direction
+                        forces = errors[:, None] * dirs               # shape (M,2)
+                        # sum and apply weight
+                        move_vec += forces.sum(axis=0) * SEPARATION_WEIGHT
             #print(move_vec, 'pre pack move arr 1111')
             move_vec += avoidance_arr[index]
             #print(move_vec, 'post array of pack move 2222')

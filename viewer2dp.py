@@ -182,6 +182,7 @@ class Viewer2D:
             y += 20
         
         species_array = orgs['species'][alive_mask]
+        diet_array = orgs['diet_type'][alive_mask]
         if species_array.size > 0:
             uniq, counts = np.unique(species_array, return_counts=True)
             
@@ -194,7 +195,8 @@ class Viewer2D:
             for idx in order:
                 sp    = uniq[idx]
                 cnt   = counts[idx]
-                line  = self.font.render(f"{sp}: {cnt}", True, (200,200,200))
+                diet  = diet_array[idx]
+                line  = self.font.render(f"{sp}: {cnt} | {diet}", True, (200,200,200))
                 self.screen.blit(line, (20,y))
                 y += 20
         

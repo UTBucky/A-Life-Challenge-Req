@@ -41,12 +41,9 @@ class Button:
 
     def draw_button(self):
         btn_text = self._font.render(self._text, True, (255, 255, 255))
+        text_rect = btn_text.get_rect(center=self._rectangle.center)
         pygame.draw.rect(self._screen, self._color, self._rectangle)
-        self._screen.blit(
-            btn_text,
-                         (self._rectangle.x + self._text_offset_x,
-                          self._rectangle.y + self._text_offset_y)
-        )
+        self._screen.blit(btn_text,text_rect)
 
     def save_simulation_prompt(self, env, timestep):
         """Opens file explorer and allows user to name save file and set location"""
@@ -139,3 +136,17 @@ def create_skip_button(screen, font):
                          )
 
     return skip_button
+
+def create_make_tree_button(screen, font):
+    """
+    Draws a button with 'Print Tree' text
+    Returns rectangle object for mouse click check
+    """
+    print_tree_button = Button(pygame.Rect(10, 600, 100, 35),
+                         "Print Tree",
+                         screen,
+                         color=(106, 170, 122),
+                         font=font
+                         )
+
+    return print_tree_button

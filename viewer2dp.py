@@ -4,7 +4,7 @@
 
 import pygame
 import numpy as np
-from button import create_stop_start_button, create_save_button, create_load_button, create_skip_button
+from button import create_stop_start_button, create_save_button, create_load_button, create_skip_button, create_make_tree_button
 
 
 class Viewer2D:
@@ -44,7 +44,7 @@ class Viewer2D:
         self.scale_x = self.main_area[0] / self.env.get_width()
         self.scale_y = self.main_area[1] / self.env.get_length()
 
-        # Flag for running state, used by start/stop button
+        # Flag for running state, used by start/stop buttona
         self._running = True
 
         # Creates reference to button objects for use in draw/handle_event functions
@@ -53,6 +53,7 @@ class Viewer2D:
         self._save_button = create_save_button(self.screen, self.font)
         self._load_button = create_load_button(self.screen, self.font)
         self._skip_button = create_skip_button(self.screen, self.font)
+        self._print_tree_button = create_make_tree_button(self.screen, self.font)
 
     def get_env(self):
         return self.env
@@ -77,6 +78,7 @@ class Viewer2D:
         self._save_button.draw_button()
         self._load_button.draw_button()
         self._skip_button.draw_button()
+        self._print_tree_button.draw_button()
 
         pygame.display.flip()
         self.clock.tick(10)
@@ -251,7 +253,7 @@ class Viewer2D:
                         self.env = saved_env
                         self.timestep = saved_timestep
                 
-                # TODO: Add the following button for creating a phylogenetic tree.
+                
                 # tree = Phylo.read((StringIO(self.env.get_organisms().get_lineage_tracker().full_forest_newick())), "newick")
                 # Phylo.write(tree, "my_tree.nwk", "newick")
         return True

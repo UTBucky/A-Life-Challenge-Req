@@ -252,8 +252,10 @@ class Viewer2D:
                     if saved_env is not None:
                         self.env = saved_env
                         self.timestep = saved_timestep
+                        
+                if self._print_tree_button.get_rectangle().collidepoint(event.pos):
+                    self._print_tree_button.print_phylo_tree(self.env)
                 
                 
-                # tree = Phylo.read((StringIO(self.env.get_organisms().get_lineage_tracker().full_forest_newick())), "newick")
-                # Phylo.write(tree, "my_tree.nwk", "newick")
+
         return True

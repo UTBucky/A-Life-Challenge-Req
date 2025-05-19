@@ -2,7 +2,8 @@
 import pygame
 import pickle
 from tkinter import filedialog
-
+from io import StringIO
+from Bio import Phylo
 
 class Button:
     """
@@ -75,6 +76,37 @@ class Button:
         with open(filename, "rb") as f:
             data = pickle.load(f)
         return data['env'], data['timestep']
+    
+    def skip_5_frames(self):
+        pass
+    
+    def print_phylo_tree(self, env, 
+                         output_filename: str = "my_tree.nwk"):
+        """
+        Read the full forest Newick from the environment's lineage
+        tracker, write it to `output_filename`, and print an ASCII
+        representation to stdout.
+        
+        Parameters:
+            env: your simulation Environment instance
+            output_filename: path to save the Newick file
+        """
+        # 1) Get the Newick string
+        newick_str = env \
+            .get_organisms() \
+            .get_lineage_tracker() \
+            .full_forest_newick()
+
+        # 2) Parse into a Phylo tree
+        tree = Phylo.read(StringIO(newick_str), "newick")
+
+        # 3) Save to file
+        Phylo.write(tree, output_filename, "newick")
+        print(f"Saved Newick tree to {output_filename!r}")
+
+        # 4) Print ASCII‐art to console
+        print("\nASCII representation of the phylogenetic tree:\n")
+        Phylo.draw_ascii(tree)
 
 
 # Portable functions to create the required button styles

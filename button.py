@@ -153,3 +153,17 @@ def create_hazard_button(screen, font):
                          )
 
     return hazard_button
+
+def create_custom_organism_button(screen, font):
+    """
+    Draws a button with 'Skip' text
+    Returns rectangle object for mouse click check
+    """
+    hazard_button = Button(pygame.Rect(10, 650, 100, 35),
+                         "Custom Organism",
+                         screen,
+                         color=(146, 38, 162),
+                         font=font
+                         )
+
+    return hazard_button

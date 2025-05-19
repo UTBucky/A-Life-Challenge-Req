@@ -6,7 +6,9 @@ import pygame
 import numpy as np
 import hashlib
 from button import create_stop_start_button, create_save_button, create_load_button, create_skip_button, \
-    create_hazard_button
+    create_hazard_button, create_custom_organism_button
+from tk_user_made_species import run_popup
+
 
 
 class Viewer2D:
@@ -56,6 +58,7 @@ class Viewer2D:
         self._load_button = create_load_button(self.screen, self.font)
         self._skip_button = create_skip_button(self.screen, self.font)
         self._hazard_button = create_hazard_button(self.screen, self.font)
+        self._custom_organism_button = create_custom_organism_button(self.screen, self.font)
         self._meteor_struck = False
         self._species_colors = {}
 
@@ -83,6 +86,7 @@ class Viewer2D:
         self._load_button.draw_button()
         self._skip_button.draw_button()
         self._hazard_button.draw_button()
+        self._custom_organism_button.draw_button()
 
         if self._meteor_struck:             # Checks for hazard button click
             self.draw_meteor()
@@ -337,7 +341,15 @@ class Viewer2D:
                 if self._hazard_button.get_rectangle().collidepoint(event.pos):             # Create environment hazard
                     self._meteor_struck = True
                     self.apply_meteor_effect()
-                
+
+                if self._custom_organism_button.get_rectangle().collidepoint(event.pos):
+                    self._running = False  # Pause the sim
+                    gene_dict, count = run_popup()
+                    if gene_dict:
+                        for _ in range(count):
+                            # TODO: Creation of custom organism, either before simulation start or adding new orgs
+                            pass
+
                 # TODO: Add the following button for creating a phylogenetic tree.
                 # tree = Phylo.read((StringIO(self.env.get_organisms().get_lineage_tracker().full_forest_newick())), "newick")
                 # Phylo.write(tree, "my_tree.nwk", "newick")

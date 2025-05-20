@@ -920,7 +920,7 @@ class Organisms:
 
             # — Energy state —
             energy_arr,
-        ) = initialize_random_traits(n, self._gene_pool)
+        ) = initialize_random_traits(self._organisms.shape[0], self._gene_pool)
 
         # Apply new genes to organisms
         copy_valid_count(

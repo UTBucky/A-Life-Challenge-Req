@@ -174,7 +174,21 @@ def create_radioactive_button(screen, font):
     Returns rectangle object for mouse click check
     """
     button = Button(pygame.Rect(10, 650, 100, 35),
-                         " Radioactive Wave",
+                         "Radioactive Wave",
+                         screen,
+                         color=(146, 38, 162),
+                         font=font
+                         )
+
+    return button
+
+def create_drought_button(screen, font):
+    """
+    Draws a button with text
+    Returns rectangle object for mouse click check
+    """
+    button = Button(pygame.Rect(10, 650, 100, 35),
+                         "Drought",
                          screen,
                          color=(146, 38, 162),
                          font=font

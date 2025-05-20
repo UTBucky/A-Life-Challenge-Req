@@ -91,6 +91,13 @@ class Environment:
         self._organisms.get_organisms()['energy'] -= 0.0001
         self._generation += 1
 
+    def drought(self):
+        """
+        Applies drought to the environment, removing all water tiles.
+        """
+        terrain = np.fill(self._terrain.shape[0], 50.0)
+        self.set_terrain(terrain)
+
 def generate_fractal_terrain(
     width,
     height,

@@ -887,7 +887,7 @@ class Organisms:
         print(f"[Meteor] Killed {len(indices)} organisms.")
 
     def apply_radioactive_wave(self):
-        
+
         # Generate random genes for all organisms
         (
             # — Morphological traits —

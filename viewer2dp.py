@@ -59,6 +59,7 @@ class Viewer2D:
         self._hazard_button = create_hazard_button(self.screen, self.font)
         self._custom_organism_button = create_custom_organism_button(self.screen, self.font)
         self._radioactive_button = create_radioactive_button(self.screen, self.font)
+        self._drought_button = create_drought_button(self.screen, self.font)
         self._meteor_struck = False
         self._species_colors = {}
 
@@ -352,8 +353,11 @@ class Viewer2D:
                 
                 if self._radioactive_button.get_rectangle().collidepoint(event.pos): 
                     self.env.get_organisms().apply_radioactive_wave()
+                    # TODO: Visualize radioactive wave
                 
-                # TODO: Drought button
+                if self._drought_button.get_rectangle().collidepoint(event.pos):
+                    self.env.drought()
+                    # TODO: Visualize drought effect
 
                 # TODO: Add the following button for creating a phylogenetic tree.
                 # tree = Phylo.read((StringIO(self.env.get_organisms().get_lineage_tracker().full_forest_newick())), "newick")

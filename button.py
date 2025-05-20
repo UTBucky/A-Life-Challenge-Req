@@ -167,3 +167,17 @@ def create_custom_organism_button(screen, font):
                          )
 
     return hazard_button
+
+def create_radioactive_button(screen, font):
+    """
+    Draws a button with text
+    Returns rectangle object for mouse click check
+    """
+    button = Button(pygame.Rect(10, 650, 100, 35),
+                         " Radioactive Wave",
+                         screen,
+                         color=(146, 38, 162),
+                         font=font
+                         )
+
+    return button

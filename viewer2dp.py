@@ -5,8 +5,7 @@
 import pygame
 import numpy as np
 import hashlib
-from button import create_stop_start_button, create_save_button, create_load_button, create_skip_button, \
-    create_hazard_button, create_custom_organism_button
+from button import *
 from tk_user_made_species import run_popup
 
 
@@ -59,6 +58,7 @@ class Viewer2D:
         self._skip_button = create_skip_button(self.screen, self.font)
         self._hazard_button = create_hazard_button(self.screen, self.font)
         self._custom_organism_button = create_custom_organism_button(self.screen, self.font)
+        self._radioactive_button = create_radioactive_button(self.screen, self.font)
         self._meteor_struck = False
         self._species_colors = {}
 
@@ -349,6 +349,11 @@ class Viewer2D:
                         for _ in range(count):
                             # TODO: Creation of custom organism, either before simulation start or adding new orgs
                             pass
+                
+                if self._radioactive_button.get_rectangle().collidepoint(event.pos): 
+                    self.env.get_organisms().apply_radioactive_wave()
+                
+                # TODO: Drought button
 
                 # TODO: Add the following button for creating a phylogenetic tree.
                 # tree = Phylo.read((StringIO(self.env.get_organisms().get_lineage_tracker().full_forest_newick())), "newick")

@@ -195,3 +195,17 @@ def create_drought_button(screen, font):
                          )
 
     return button
+
+def create_flood_button(screen, font):
+    """
+    Draws a button with text
+    Returns rectangle object for mouse click check
+    """
+    button = Button(pygame.Rect(10, 650, 100, 35),
+                         "Flood",
+                         screen,
+                         color=(146, 38, 162),
+                         font=font
+                         )
+
+    return button

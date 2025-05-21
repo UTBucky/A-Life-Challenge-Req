@@ -5,14 +5,9 @@ from load_genes import load_genes_from_file
 from hazard import Meteor
 
 
-# Variables for setup/testing
-GRID_SIZE = 800         # Determines size of environment
-NUM_ORGANISMS = 5000    # Attempt organism creation this many times
-
-
-def main():
+def main(GRID_SIZE, NUM_ORGANISMS, MUTATION_RATE):
     # Initialize environment
-    env = Environment(GRID_SIZE, GRID_SIZE)
+    env = Environment(GRID_SIZE, GRID_SIZE, MUTATION_RATE)
 
     # Generate terrain and apply terrain mask
     raw_terrain = generate_fractal_terrain(GRID_SIZE, GRID_SIZE, seed=200)

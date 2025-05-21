@@ -63,7 +63,7 @@ class Organisms:
         ('generation',            np.int32),
     ])
 
-    def __init__(self, env: object, O_CLASS = ORGANISM_CLASS):
+    def __init__(self, env: object, mutation_rate, O_CLASS = ORGANISM_CLASS):
         """
         Initialize an organism object.
 
@@ -81,7 +81,7 @@ class Organisms:
         self._length = env.get_length()
         
         #Genes
-        self._mutation_rate = 0.05
+        self._mutation_rate = mutation_rate
         self._gene_pool = None
         
         # Lineage

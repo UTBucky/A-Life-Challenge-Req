@@ -21,7 +21,7 @@ def main_menu():
         frame.destroy()
 
         # Start the simulation with the given parameters
-        controller.main(grid_size_val, num_organisms_val, mutation_rate_val)
+        controller.controller(grid_size_val, num_organisms_val, mutation_rate_val)
 
     # Create frame
     frame = Tk()
@@ -63,4 +63,5 @@ def main_menu():
 
     frame.mainloop()
 
-main_menu()
+if __name__ == "__main__":
+    main_menu()

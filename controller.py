@@ -5,7 +5,7 @@ from load_genes import load_genes_from_file
 from hazard import Meteor
 
 
-def main(GRID_SIZE, NUM_ORGANISMS, MUTATION_RATE):
+def controller(GRID_SIZE, NUM_ORGANISMS, MUTATION_RATE):
     # Initialize environment
     env = Environment(GRID_SIZE, GRID_SIZE, MUTATION_RATE)
 
@@ -39,6 +39,3 @@ def main(GRID_SIZE, NUM_ORGANISMS, MUTATION_RATE):
             # Need to call step on env attached to the viewer if loading a saved state
             viewer.get_env().step()                       # Progresses simulation 1 gen
             viewer.draw_screen()                    # Renders environment
-
-if __name__ == "__main__":
-    main()

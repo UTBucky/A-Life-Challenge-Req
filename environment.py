@@ -11,7 +11,7 @@ class Environment:
     2D Simulation Environment
     """
 
-    def __init__(self, width: int, length: int, mutation_rate: float):
+    def __init__(self, width: int, length: int):
         """
         Initializes the 2D environment with set size,
         terrain, and organisms.
@@ -27,7 +27,7 @@ class Environment:
         self._generation = 0
         self._total_births = 0
         self._total_deaths = 0
-        self._organisms = Organisms(self, mutation_rate)
+        self._organisms = Organisms(self)
         self._meteor = None
 
     # Get methods

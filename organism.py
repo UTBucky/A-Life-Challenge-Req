@@ -63,7 +63,7 @@ class Organisms:
         ('generation',            np.int32),
     ])
 
-    def __init__(self, env: object, mutation_rate, O_CLASS = ORGANISM_CLASS):
+    def __init__(self, env: object, O_CLASS = ORGANISM_CLASS):
         """
         Initialize an organism object.
 
@@ -81,7 +81,7 @@ class Organisms:
         self._length = env.get_length()
         
         #Genes
-        self._mutation_rate = mutation_rate
+        self._mutation_rate = 0.01
         self._gene_pool = None
         
         # Lineage
@@ -127,6 +127,9 @@ class Organisms:
         return self._lineage_tracker
 
     # Set methods
+    def set_mutation_rate(self, new_rate):
+        self._mutation_rate = new_rate
+
     def set_organisms(self, new_organisms):
         """
         Changes the organisms array within the Organisms object

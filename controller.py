@@ -7,7 +7,7 @@ from hazard import Meteor
 
 def controller(GRID_SIZE, NUM_ORGANISMS, MUTATION_RATE):
     # Initialize environment
-    env = Environment(GRID_SIZE, GRID_SIZE, MUTATION_RATE)
+    env = Environment(GRID_SIZE, GRID_SIZE)
 
     # Generate terrain and apply terrain mask
     raw_terrain = generate_fractal_terrain(GRID_SIZE, GRID_SIZE, seed=200)
@@ -18,6 +18,7 @@ def controller(GRID_SIZE, NUM_ORGANISMS, MUTATION_RATE):
     gene_pool = load_genes_from_file()
     env.get_organisms().load_genes(gene_pool)
     number_of_organisms = int(NUM_ORGANISMS)
+    env.get_organisms().set_mutation_rate(MUTATION_RATE)
     env.get_organisms().spawn_initial_organisms(number_of_organisms, True)
 
     # Initialize meteor hazard with random location and passes it to env

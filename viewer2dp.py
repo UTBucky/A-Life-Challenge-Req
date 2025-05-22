@@ -65,7 +65,7 @@ class Viewer2D:
         self._species_colors = {}
         self._ring_radius = 1
         self._center = (window_size[0] // 2 - self.sidebar_width, window_size[1] // 2)
-        self._radioactive_completed = False
+        self._radioactive_started = False
 
     def get_env(self):
         return self.env
@@ -99,9 +99,9 @@ class Viewer2D:
         if self._meteor_struck:             # Checks for hazard button click
             self.draw_meteor()
 
-        if self._radioactive_completed:
+        if self._radioactive_started:
             self.env.get_organisms().apply_radioactive_wave()
-            self._radioactive_completed = False
+            self._radioactive_started = False
 
         pygame.display.flip()
 
@@ -323,7 +323,7 @@ class Viewer2D:
         self._ring_radius += 1
 
         if radius_3 >= (max(self.window_size) // 2):
-            self._hazard_completed = True
+            self._radioactive_started = True
             self._ring_radius = 1
 
     def draw_flood(self):

@@ -95,14 +95,14 @@ class Environment:
         """
         Applies drought to the environment, removing all water tiles.
         """
-        terrain = np.fill(self._terrain.shape[0], 50.0)
+        terrain = np.fill(self._terrain.shape[0], 0)
         self.set_terrain(terrain)
 
     def flood(self):
         """
         Applies flood to the environment, removing all land tiles.
         """
-        terrain = np.fill(self._terrain.shape[0], -50.0)
+        terrain = np.fill(self._terrain.shape[0], -1)
         self.set_terrain(terrain)
 
 def generate_fractal_terrain(

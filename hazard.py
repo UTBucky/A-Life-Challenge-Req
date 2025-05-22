@@ -49,7 +49,3 @@ class Meteor(Hazard):
     """Meteor class with a set radius and base damage."""
     def __init__(self, radius=20, base_damage=100, movement=False, x_pos=None, y_pos=None):
         super().__init__(radius=radius, base_damage=base_damage, movement=movement, x_pos=x_pos, y_pos=y_pos)
-
-
-
-

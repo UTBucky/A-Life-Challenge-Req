@@ -89,6 +89,9 @@ class Viewer2D:
         self._skip_button.draw_button()
         self._hazard_button.draw_button()
         self._custom_organism_button.draw_button()
+        self._radioactive_button.draw_button()
+        self._drought_button.draw_button()
+        self._flood_button.draw_button()
 
         if self._meteor_struck:             # Checks for hazard button click
             self.draw_meteor()
@@ -295,6 +298,18 @@ class Viewer2D:
 
         # Inner fill - solid gray circle
         pygame.draw.circle(self.screen, (169, 169, 169), (x, y), int(radius * 0.6))
+    
+    def draw_radioactive_wave(self):
+        """Renders the radioactive wave on-screen"""
+        pass
+
+    def draw_flood(self):
+        """Renders the flood on-screen"""
+        pass
+
+    def draw_drought(self):
+        """Renders the drought on-screen"""
+        pass
 
     def apply_meteor_effect(self):
         """Calls the apply_meteor_damage method from Organisms, using base damage

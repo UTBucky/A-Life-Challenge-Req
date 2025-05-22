@@ -63,6 +63,9 @@ class Viewer2D:
         self._flood_button = create_flood_button(self.screen, self.font)
         self._meteor_struck = False
         self._species_colors = {}
+        self._ring_radius = 1
+        self._center = (window_size[0] // 2 - self.sidebar_width, window_size[1] // 2)
+        self._radioactive_completed = False
 
     def get_env(self):
         return self.env
@@ -95,6 +98,10 @@ class Viewer2D:
 
         if self._meteor_struck:             # Checks for hazard button click
             self.draw_meteor()
+
+        if self._radioactive_completed:
+            self.env.get_organisms().apply_radioactive_wave()
+            self._radioactive_completed = False
 
         pygame.display.flip()
 
@@ -301,7 +308,23 @@ class Viewer2D:
     
     def draw_radioactive_wave(self):
         """Renders the radioactive wave on-screen"""
-        pass
+
+        color_1 = (144, 238, 144)
+        color_2 = (34, 139, 34)
+        color_3 = (0, 100, 0)
+
+        radius_2 = max(self._ring_radius - 1, 0)
+        radius_3 = max(self._ring_radius - 2, 0)
+
+        pygame.draw.circle(self.screen, color_1, self._center, self._ring_radius, 4)
+        pygame.draw.circle(self.screen, color_2, self._center, radius_2, 4)
+        pygame.draw.circle(self.screen, color_3, self._center, radius_3, 4)
+
+        self._ring_radius += 1
+
+        if radius_3 >= (max(self.window_size) // 2):
+            self._hazard_completed = True
+            self._ring_radius = 1
 
     def draw_flood(self):
         """Renders the flood on-screen"""
@@ -368,8 +391,7 @@ class Viewer2D:
                             pass
                 
                 if self._radioactive_button.get_rectangle().collidepoint(event.pos): 
-                    self.env.get_organisms().apply_radioactive_wave()
-                    # TODO: Visualize radioactive wave
+                    self.draw_radioactive_wave()
                 
                 if self._drought_button.get_rectangle().collidepoint(event.pos):
                     self.env.drought()

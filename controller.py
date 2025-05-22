@@ -6,8 +6,8 @@ from hazard import Meteor
 
 
 # Variables for setup/testing
-GRID_SIZE = 800         # Determines size of environment
-NUM_ORGANISMS = 5000    # Attempt organism creation this many times
+GRID_SIZE = 500         # Determines size of environment
+NUM_ORGANISMS = 250    # Attempt organism creation this many times
 
 
 def main():
@@ -32,7 +32,7 @@ def main():
     env.set_meteor(meteor)
 
     # Initialize PyGame visualization
-    viewer = Viewer2D(env)
+    viewer = Viewer2D(env, window_size=(1200, 600))
 
     # Run PyGame methods - could probably be combined into an "execute" method
     # in grid_viewer, here for now to make easier to see what is running

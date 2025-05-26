@@ -80,10 +80,7 @@ class Environment:
         self._organisms.reproduce()
         self._organisms.kill_border()
         self._organisms.remove_dead()
-        self._organisms.get_organisms()['energy'] -= 0.0001
-        print(self._organisms.get_organisms()['current_age'])
         self._organisms.get_organisms()['current_age'] += 1
-        print(self._organisms.get_organisms()['current_age'])
         self._generation += 1
 
 def generate_fractal_terrain(

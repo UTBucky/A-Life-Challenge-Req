@@ -688,9 +688,7 @@ def unified_movement_compute(
             repulse = np.mean(pos - coords[same], axis=0)
             move_vec += CROWD_PUSH * repulse
         
-        #print(move_vec, 'pre move av array 3333')
         move_vec += avoidance_arr[index]
-        #print(move_vec, 'post normal move av array 4444')
         # normalize & scale
         norm = np.linalg.norm(move_vec)
         step = (move_vec / norm) * \
@@ -771,9 +769,7 @@ def unified_movement_compute(
                         forces = errors[:, None] * dirs               # shape (M,2)
                         # sum and apply weight
                         move_vec += forces.sum(axis=0) * SEPARATION_WEIGHT
-            #print(move_vec, 'pre pack move arr 1111')
             move_vec += avoidance_arr[index]
-            #print(move_vec, 'post array of pack move 2222')
 
             # normalize & scale by speed
             norm = np.linalg.norm(move_vec)

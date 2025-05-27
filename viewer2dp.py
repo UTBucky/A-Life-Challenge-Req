@@ -4,7 +4,11 @@
 
 import pygame
 import numpy as np
-from button import create_stop_start_button, create_save_button, create_load_button, create_skip_button, create_make_tree_button
+import hashlib
+from button import create_stop_start_button, create_save_button, create_load_button, create_skip_button, \
+    create_hazard_button, create_custom_organism_button
+from tk_user_made_species import run_popup
+
 
 
 class Viewer2D:
@@ -15,7 +19,7 @@ class Viewer2D:
     def __init__(
             self,
             environment,
-            window_size=(1920, 1280),
+            window_size=(1600, 900),
             sidebar_width=200
     ):
         """
@@ -54,6 +58,10 @@ class Viewer2D:
         self._load_button = create_load_button(self.screen, self.font)
         self._skip_button = create_skip_button(self.screen, self.font)
         self._print_tree_button = create_make_tree_button(self.screen, self.font)
+        self._hazard_button = create_hazard_button(self.screen, self.font)
+        self._custom_organism_button = create_custom_organism_button(self.screen, self.font)
+        self._meteor_struck = False
+        self._species_colors = {}
 
     def get_env(self):
         return self.env
@@ -79,8 +87,14 @@ class Viewer2D:
         self._load_button.draw_button()
         self._skip_button.draw_button()
         self._print_tree_button.draw_button()
+        self._hazard_button.draw_button()
+        self._custom_organism_button.draw_button()
+
+        if self._meteor_struck:             # Checks for hazard button click
+            self.draw_meteor()
 
         pygame.display.flip()
+
         self.clock.tick(10)
 
     def draw_terrain(self):
@@ -148,20 +162,44 @@ class Viewer2D:
         for org in alive:
             x = int(org['x_pos'] * self.scale_x) + self.sidebar_width
             y = int(org['y_pos'] * self.scale_y)
-            e = float(org['energy'])
+            species = org['species']
+            if isinstance(species, bytes):
+                species = species.decode()
+            color = self._generate_species_color(species)
 
-            if e < 1:
-                color = (255,   0,   0)   # red
-            elif e < 2:
-                color = (255,  69,   0)   # red-orange
-            elif e < 3:
-                color = (255, 165,   0)   # orange-yellow
-            elif e < 4:
-                color = (255, 255,   0)   # yellow
+            # pygame.draw.circle(self.screen, color, (x, y), 3)
+            diet = org['diet_type'].decode() if isinstance(org['diet_type'], bytes) else org['diet_type']
+
+            if diet == "Herb":
+                # Yellow hexagon
+                r = 4  # radius of hexagon
+                points = [
+                    (x + r * np.cos(np.pi / 3 * i), y + r * np.sin(np.pi / 3 * i))
+                    for i in range(6)
+                ]
+                pygame.draw.polygon(self.screen, color, points)
+
+            elif diet == "Omni":
+                # White diamond
+                points = [(x, y - 5), (x - 5, y), (x, y + 5), (x + 5, y)]
+                pygame.draw.polygon(self.screen, color, points)
+
+            elif diet == "Carn":
+                # Red square
+                pygame.draw.rect(self.screen, color, pygame.Rect(x - 3, y - 3, 6, 6))
+
+            elif diet == "Photo":
+                # Green circle
+                pygame.draw.circle(self.screen, color, (x, y), 4)
+
+            elif diet == "Parasite":
+                # Purple X shape (cross)
+                pygame.draw.line(self.screen, color, (x - 3, y - 3), (x + 3, y + 3), 2)
+                pygame.draw.line(self.screen, color, (x - 3, y + 3), (x + 3, y - 3), 2)
+
             else:
-                color = (255, 255, 255)   # white for e ≥ 40
-
-            pygame.draw.circle(self.screen, color, (x, y), 3)
+                # Default fallback shape
+                pygame.draw.circle(self.screen, (0, 0, 0), (x, y), 3)
 
     def draw_additional_stats(self):
         """
@@ -231,6 +269,55 @@ class Viewer2D:
         )
         self.screen.blit(pop_text, (10, 30))
 
+    def draw_meteor(self):
+        """Renders the meteor on-screen"""
+        meteor = self.env.get_meteor()
+        if meteor is None or meteor.get_x_pos() is None or meteor.get_y_pos() is None:
+            return
+        x = int(meteor.get_x_pos() * self.scale_x) + self.sidebar_width
+        y = int(meteor.get_y_pos() * self.scale_y)
+        radius = int(meteor.get_radius() * ((self.scale_x + self.scale_y) / 2))
+
+        # Draw jagged rocky appearance using polygon
+        jagged_points = []
+        segments = 50
+        angle_step = 2 * np.pi / segments
+        for i in range(segments):
+            angle = i * angle_step
+            # Add a little noise to the edge
+            noise = np.random.uniform(0.8, 1.2)
+            r = radius * noise
+            px = int(x + r * np.cos(angle))
+            py = int(y + r * np.sin(angle))
+            jagged_points.append((px, py))
+
+        # Outer rocky edge - dark gray outline
+        pygame.draw.polygon(self.screen, (80, 80, 80), jagged_points)
+
+        # Inner fill - solid gray circle
+        pygame.draw.circle(self.screen, (169, 169, 169), (x, y), int(radius * 0.6))
+
+    def apply_meteor_effect(self):
+        """Calls the apply_meteor_damage method from Organisms, using base damage
+        and meteor location to determine affected organisms."""
+        meteor = self.env.get_meteor()
+        organisms = self.env.get_organisms()
+        organisms.apply_meteor_damage(
+            x=meteor.get_x_pos(),
+            y=meteor.get_y_pos(),
+            radius=meteor.get_radius(),
+            base_damage=meteor.get_base_damage()
+        )
+
+    def _generate_species_color(self, species_name):
+        """Generates a unique color for each species name. Uses hashlib to make colors
+        deterministic across all simulations. Avoids very dark/black colors."""
+        if species_name not in self._species_colors:
+            h = int(hashlib.md5(species_name.encode()).hexdigest()[:6], 16)
+            color = ((h >> 16) & 255, (h >> 8) & 255, h & 255)
+            self._species_colors[species_name] = color
+        return self._species_colors[species_name]
+
     def handle_events(self):
         """
         Pygames method for interactability
@@ -253,7 +340,19 @@ class Viewer2D:
                     if saved_env is not None:
                         self.env = saved_env
                         self.timestep = saved_timestep
-                        
+        
+                if self._hazard_button.get_rectangle().collidepoint(event.pos):             # Create environment hazard
+                    self._meteor_struck = True
+                    self.apply_meteor_effect()
+
+                if self._custom_organism_button.get_rectangle().collidepoint(event.pos):
+                    self._running = False  # Pause the sim
+                    gene_dict, count = run_popup()
+                    if gene_dict:
+                        for _ in range(count):
+                            # TODO: Creation of custom organism, either before simulation start or adding new orgs
+                            pass
+
                 if self._print_tree_button.get_rectangle().collidepoint(event.pos):
                     self._print_tree_button.print_phylo_tree(self.env)
                 

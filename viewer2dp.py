@@ -346,9 +346,8 @@ class Viewer2D:
                     self._running = False  # Pause the sim
                     gene_dict, count = run_popup()
                     if gene_dict:
-                        for _ in range(count):
-                            # TODO: Creation of custom organism, either before simulation start or adding new orgs
-                            pass
+                        self.env.get_organisms().spawn_initial_organisms(number_of_organisms=count, user_genes=gene_dict)
+                    self._running = True
 
                 # TODO: Add the following button for creating a phylogenetic tree.
                 # tree = Phylo.read((StringIO(self.env.get_organisms().get_lineage_tracker().full_forest_newick())), "newick")

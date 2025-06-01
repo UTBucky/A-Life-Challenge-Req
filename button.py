@@ -109,13 +109,13 @@ def create_skip_button(screen, font, x_offset=0):
     return Button(pygame.Rect(x_offset, 200, BUTTON_WIDTH, BUTTON_HEIGHT),
                   "SKIP", screen, color=(40, 40, 40), font=font)
 
-def create_hazard_button(screen, font, x_offset=0):
-    return Button(pygame.Rect(x_offset, 250, BUTTON_WIDTH, BUTTON_HEIGHT),
-                  "METEOR", screen, color=(204, 85, 0), font=font)
-
 def create_custom_organism_button(screen, font, x_offset=0):
-    return Button(pygame.Rect(x_offset, 300, BUTTON_WIDTH, BUTTON_HEIGHT),
+    return Button(pygame.Rect(x_offset, 250, BUTTON_WIDTH, BUTTON_HEIGHT),
                   "CUSTOM ORGANISM", screen, color=(146, 38, 162), font=font)
+
+def create_hazard_button(screen, font, x_offset=0):
+    return Button(pygame.Rect(x_offset, 300, BUTTON_WIDTH, BUTTON_HEIGHT),
+                  "METEOR", screen, color=(139, 0, 0), font=font)
 
 def create_radioactive_button(screen, font, x_offset=0):
     """
@@ -123,7 +123,7 @@ def create_radioactive_button(screen, font, x_offset=0):
     Returns rectangle object for mouse click check
     """
     return Button(pygame.Rect(x_offset, 350, BUTTON_WIDTH, BUTTON_HEIGHT),
-                    "RADIOACTIVE WAVE", screen, color=(146, 38, 162), font=font)
+                    "RADIOACTIVE WAVE", screen, color=(139, 0, 0), font=font)
 
 def create_drought_button(screen, font, x_offset=0):
     """
@@ -131,7 +131,7 @@ def create_drought_button(screen, font, x_offset=0):
     Returns rectangle object for mouse click check
     """
     return Button(pygame.Rect(x_offset, 400, BUTTON_WIDTH, BUTTON_HEIGHT),
-                    "DROUGHT", screen, color=(146, 38, 162), font=font)
+                    "DROUGHT", screen, color=(139, 0, 0), font=font)
 
 def create_flood_button(screen, font, x_offset=0):
     """
@@ -139,4 +139,4 @@ def create_flood_button(screen, font, x_offset=0):
     Returns rectangle object for mouse click check
     """
     return Button(pygame.Rect(x_offset, 450, BUTTON_WIDTH, BUTTON_HEIGHT),
-                    "FLOOD", screen, color=(146, 38, 162), font=font)
+                    "FLOOD", screen, color=(139, 0, 0), font=font)

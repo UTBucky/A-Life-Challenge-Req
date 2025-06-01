@@ -54,14 +54,17 @@ class Viewer2D:
         self._running = True
 
         # Creates reference to button objects for use in draw/handle_event functions
-        self.slider = Slider(x=150, y=30, height=100, min_val=1, max_val=60, start_val=30)
+        slider_x = self.window_size[0] - self.sidebar_width + (self.sidebar_width - 20) // 2  # Adjust width if needed
+        slider_y = 600  # Or set just below your last button
+        self.slider = Slider(x=slider_x, y=slider_y, height=100, min_val=1, max_val=60, start_val=30)
+
         self.tick_rate = 30
         
-        x_offset = self.window_size[0] - self.sidebar_width + self.sidebar_width // 3
+        x_offset = self.window_size[0] - self.sidebar_width + (self.sidebar_width - BUTTON_WIDTH) // 2
         initial_text = "PAUSE" if self._running else "START"
         initial_color = (200, 50, 50) if self._running else (50, 200, 50)
         self._stop_start_button = create_stop_start_button(
-            self.screen, self.font, text=initial_text, color=initial_color, x_offset)
+            self.screen, self.font, text=initial_text, color=initial_color, x_offset=x_offset)
         self._save_button = create_save_button(self.screen, self.font, x_offset)
         self._load_button = create_load_button(self.screen, self.font, x_offset)
         self._skip_button = create_skip_button(self.screen, self.font, x_offset)
@@ -496,8 +499,8 @@ class Viewer2D:
                     self._flood = True
                     self._drought = False
                     
-           # Clock tick rate slider
-           self.slider.handle_event(event)
+            # Clock tick rate slider
+            self.slider.handle_event(event)
 
                 # TODO: Add the following button for creating a phylogenetic tree.
                 # tree = Phylo.read((StringIO(self.env.get_organisms().get_lineage_tracker().full_forest_newick())), "newick")

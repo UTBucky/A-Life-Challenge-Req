@@ -5,6 +5,7 @@
 import pygame
 import numpy as np
 import hashlib
+import math
 from button import *
 from tk_user_made_species import run_popup
 
@@ -69,6 +70,9 @@ class Viewer2D:
         self._center = (window_size[0] / 2, window_size[1] / 2)
         self._radioactive_started = False
         self._radioactive = False
+        self._flood = False
+        self._drought = False
+        self._notification_time = 0
 
     def get_env(self):
         return self.env
@@ -109,6 +113,19 @@ class Viewer2D:
 
         if self._radioactive:
             self.draw_radioactive_wave()
+
+        if self._notification_time > 5:
+            self._notification_time = 0
+            self._flood = False
+            self._drought = False
+
+        if self._flood:
+            self.draw_flood()
+            self._notification_time += 1
+        
+        if self._drought:
+            self.draw_drought()
+            self._notification_time += 1
 
         pygame.display.flip()
 
@@ -346,11 +363,41 @@ class Viewer2D:
 
     def draw_flood(self):
         """Renders the flood on-screen"""
-        pass
+        
+        color = (100, 149, 237)
+        
+        pygame.draw.circle(self.screen, color, self._center, 40)
+        
+        apex = (self._center[0], self._center[1] - 100)
+        base_left = (self._center[0] - 37, self._center[1] - 15)
+        base_right = (self._center[0] + 37, self._center[1] - 15)
+        points = [apex, base_left, base_right]
+        pygame.draw.polygon(self.screen, color, points)
 
     def draw_drought(self):
         """Renders the drought on-screen"""
-        pass
+        
+        sun_color = (255, 223, 0)
+        ray_color = (255, 200, 0)
+        num_rays = 8
+        ray_length = 50
+
+        pygame.draw.circle(self.screen, sun_color, self._center, 40)
+
+        for i in range(num_rays):
+            angle = i * (360 / num_rays)
+            radian_angle = math.radians(angle)
+            point_1 = (
+                self._center[0] + 40 * math.cos(radian_angle),
+                self._center[1] + 40 * math.sin(radian_angle)
+            )
+
+            point_2 = (
+                self._center[0] + (40 + ray_length) * math.cos(radian_angle),
+                self._center[1] + (40 + ray_length) * math.sin(radian_angle)
+            )
+
+            pygame.draw.line(self.screen, ray_color, point_1, point_2, 3)
 
     def apply_meteor_effect(self):
         """Calls the apply_meteor_damage method from Organisms, using base damage
@@ -413,11 +460,13 @@ class Viewer2D:
                 
                 if self._drought_button.get_rectangle().collidepoint(event.pos):
                     self.env.drought()
-                    # TODO: Visualize drought effect
+                    self._drought = True
+                    self._flood = False
 
                 if self._flood_button.get_rectangle().collidepoint(event.pos):
                     self.env.flood()
-                    # TODO: VIsualize flood effect
+                    self._flood = True
+                    self._drought = False
 
                 # TODO: Add the following button for creating a phylogenetic tree.
                 # tree = Phylo.read((StringIO(self.env.get_organisms().get_lineage_tracker().full_forest_newick())), "newick")

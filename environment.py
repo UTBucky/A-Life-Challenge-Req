@@ -102,7 +102,7 @@ class Environment:
         """
         Applies flood to the environment, removing all land tiles.
         """
-        terrain = np.full(self._terrain.shape, -1)
+        terrain = np.full(self._terrain.shape, -0.1)
         self.set_terrain(terrain)
 
 def generate_fractal_terrain(

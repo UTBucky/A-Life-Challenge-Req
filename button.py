@@ -81,7 +81,7 @@ class Button:
 
 
 # Portable functions to create the required button styles
-def create_stop_start_button(screen, font, running, x_offset):
+def create_stop_start_button(screen, font, running, x_offset=0):
     """
     Draws a single button with that shows start/stop depending on run state
     Returns rectangle object for mouse click check
@@ -96,7 +96,7 @@ def create_stop_start_button(screen, font, running, x_offset):
     return stop_start_button
 
 
-def create_save_button(screen, font, x_offset):
+def create_save_button(screen, font, x_offset=0):
     """
     Draws a button with 'Save' text
     Returns rectangle object for mouse click check
@@ -111,7 +111,7 @@ def create_save_button(screen, font, x_offset):
     return save_button
 
 
-def create_load_button(screen, font, x_offset):
+def create_load_button(screen, font, x_offset=0):
     """
     Draws a button with 'Load' text
     Returns rectangle object for mouse click check
@@ -126,7 +126,7 @@ def create_load_button(screen, font, x_offset):
     return load_button
 
 
-def create_skip_button(screen, font, x_offset):
+def create_skip_button(screen, font, x_offset=0):
     """
     Draws a button with 'Skip' text
     Returns rectangle object for mouse click check
@@ -140,7 +140,7 @@ def create_skip_button(screen, font, x_offset):
 
     return skip_button
 
-def create_hazard_button(screen, font, x_offset):
+def create_hazard_button(screen, font, x_offset=0):
     """
     Draws a button with 'Skip' text
     Returns rectangle object for mouse click check
@@ -154,7 +154,7 @@ def create_hazard_button(screen, font, x_offset):
 
     return hazard_button
 
-def create_custom_organism_button(screen, font, x_offset):
+def create_custom_organism_button(screen, font, x_offset=0):
     """
     Draws a button with 'Skip' text
     Returns rectangle object for mouse click check
@@ -169,7 +169,7 @@ def create_custom_organism_button(screen, font, x_offset):
 
     return hazard_button
 
-def create_radioactive_button(screen, font, x_offset):
+def create_radioactive_button(screen, font, x_offset=0):
     """
     Draws a button with text
     Returns rectangle object for mouse click check
@@ -184,7 +184,7 @@ def create_radioactive_button(screen, font, x_offset):
 
     return button
 
-def create_drought_button(screen, font, x_offset):
+def create_drought_button(screen, font, x_offset=0):
     """
     Draws a button with text
     Returns rectangle object for mouse click check
@@ -198,7 +198,7 @@ def create_drought_button(screen, font, x_offset):
 
     return button
 
-def create_flood_button(screen, font, x_offset):
+def create_flood_button(screen, font, x_offset=0):
     """
     Draws a button with text
     Returns rectangle object for mouse click check

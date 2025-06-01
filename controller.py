@@ -5,12 +5,7 @@ from load_genes import load_genes_from_file
 from hazard import Meteor
 
 
-# Variables for setup/testing
-GRID_SIZE = 500         # Determines size of environment
-NUM_ORGANISMS = 250    # Attempt organism creation this many times
-
-
-def main():
+def controller(GRID_SIZE, NUM_ORGANISMS, MUTATION_RATE):
     # Initialize environment
     env = Environment(GRID_SIZE, GRID_SIZE)
 
@@ -23,6 +18,7 @@ def main():
     gene_pool = load_genes_from_file()
     env.get_organisms().load_genes(gene_pool)
     number_of_organisms = int(NUM_ORGANISMS)
+    env.get_organisms().set_mutation_rate(MUTATION_RATE)
     env.get_organisms().spawn_initial_organisms(number_of_organisms, True)
 
     # Initialize meteor hazard with random location and passes it to env
@@ -44,6 +40,3 @@ def main():
             # Need to call step on env attached to the viewer if loading a saved state
             viewer.get_env().step()                       # Progresses simulation 1 gen
             viewer.draw_screen()                    # Renders environment
-
-if __name__ == "__main__":
-    main()

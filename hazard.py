@@ -129,8 +129,3 @@ class Meteor(Hazard):
 
             # Draw the dark meteor body
             pygame.draw.circle(surface, (70, 70, 70), (x, y), int(radius * 0.6))
-
-
-
-
-

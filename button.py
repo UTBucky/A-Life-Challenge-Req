@@ -93,26 +93,50 @@ class Button:
 
 
 # Portable functions to create the required button styles
-def create_stop_start_button(screen, font, text="START", color=(50, 200, 50)):
-    return Button(pygame.Rect(BUTTON_X, 400, BUTTON_WIDTH, BUTTON_HEIGHT),
+def create_stop_start_button(screen, font, text="START", color=(50, 200, 50), x_offset=0):
+    return Button(pygame.Rect(x_offset, 50, BUTTON_WIDTH, BUTTON_HEIGHT),
                   text, screen, color=color, font=font)
 
-def create_save_button(screen, font):
-    return Button(pygame.Rect(BUTTON_X, 450, BUTTON_WIDTH, BUTTON_HEIGHT),
+def create_save_button(screen, font, x_offset=0):
+    return Button(pygame.Rect(x_offset, 100, BUTTON_WIDTH, BUTTON_HEIGHT),
                   "SAVE", screen, color=(52, 52, 236), font=font)
 
-def create_load_button(screen, font):
-    return Button(pygame.Rect(BUTTON_X, 500, BUTTON_WIDTH, BUTTON_HEIGHT),
+def create_load_button(screen, font, x_offset=0):
+    return Button(pygame.Rect(x_offset, 150, BUTTON_WIDTH, BUTTON_HEIGHT),
                   "LOAD", screen, color=(52, 157, 236), font=font)
 
-def create_skip_button(screen, font):
-    return Button(pygame.Rect(BUTTON_X, 550, BUTTON_WIDTH, BUTTON_HEIGHT),
+def create_skip_button(screen, font, x_offset=0):
+    return Button(pygame.Rect(x_offset, 200, BUTTON_WIDTH, BUTTON_HEIGHT),
                   "SKIP", screen, color=(40, 40, 40), font=font)
 
-def create_hazard_button(screen, font):
-    return Button(pygame.Rect(BUTTON_X, 600, BUTTON_WIDTH, BUTTON_HEIGHT),
+def create_hazard_button(screen, font, x_offset=0):
+    return Button(pygame.Rect(x_offset, 250, BUTTON_WIDTH, BUTTON_HEIGHT),
                   "METEOR", screen, color=(204, 85, 0), font=font)
 
-def create_custom_organism_button(screen, font):
-    return Button(pygame.Rect(BUTTON_X, 650, BUTTON_WIDTH, BUTTON_HEIGHT),
+def create_custom_organism_button(screen, font, x_offset=0):
+    return Button(pygame.Rect(x_offset, 300, BUTTON_WIDTH, BUTTON_HEIGHT),
                   "CUSTOM ORGANISM", screen, color=(146, 38, 162), font=font)
+
+def create_radioactive_button(screen, font, x_offset=0):
+    """
+    Draws a button with text
+    Returns rectangle object for mouse click check
+    """
+    return Button(pygame.Rect(x_offset, 350, BUTTON_WIDTH, BUTTON_HEIGHT),
+                    "RADIOACTIVE WAVE", screen, color=(146, 38, 162), font=font)
+
+def create_drought_button(screen, font, x_offset=0):
+    """
+    Draws a button with text
+    Returns rectangle object for mouse click check
+    """
+    return Button(pygame.Rect(x_offset, 400, BUTTON_WIDTH, BUTTON_HEIGHT),
+                    "DROUGHT", screen, color=(146, 38, 162), font=font)
+
+def create_flood_button(screen, font, x_offset=0):
+    """
+    Draws a button with text
+    Returns rectangle object for mouse click check
+    """
+    return Button(pygame.Rect(x_offset, 450, BUTTON_WIDTH, BUTTON_HEIGHT),
+                    "FLOOD", screen, color=(146, 38, 162), font=font)

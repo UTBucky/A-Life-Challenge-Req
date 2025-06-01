@@ -81,12 +81,12 @@ class Button:
 
 
 # Portable functions to create the required button styles
-def create_stop_start_button(screen, font, running):
+def create_stop_start_button(screen, font, running, x_offset=0):
     """
     Draws a single button with that shows start/stop depending on run state
     Returns rectangle object for mouse click check
     """
-    stop_start_button = Button(pygame.Rect(10, 400, 100, 35),
+    stop_start_button = Button(pygame.Rect(x_offset, 50, 100, 35),
                                "Pause" if running else "Start",
                                screen,
                                color=(89, 236, 52),
@@ -96,12 +96,12 @@ def create_stop_start_button(screen, font, running):
     return stop_start_button
 
 
-def create_save_button(screen, font):
+def create_save_button(screen, font, x_offset=0):
     """
     Draws a button with 'Save' text
     Returns rectangle object for mouse click check
     """
-    save_button = Button(pygame.Rect(10, 450, 100, 35),
+    save_button = Button(pygame.Rect(x_offset, 100, 100, 35),
                          "Save",
                          screen,
                          color=(52, 52, 236),
@@ -111,12 +111,12 @@ def create_save_button(screen, font):
     return save_button
 
 
-def create_load_button(screen, font):
+def create_load_button(screen, font, x_offset=0):
     """
     Draws a button with 'Load' text
     Returns rectangle object for mouse click check
     """
-    load_button = Button(pygame.Rect(10, 500, 100, 35),
+    load_button = Button(pygame.Rect(x_offset, 150, 100, 35),
                          "Load",
                          screen,
                          color=(52, 157, 236),
@@ -126,26 +126,26 @@ def create_load_button(screen, font):
     return load_button
 
 
-def create_skip_button(screen, font):
+def create_skip_button(screen, font, x_offset=0):
     """
     Draws a button with 'Skip' text
     Returns rectangle object for mouse click check
     """
-    skip_button = Button(pygame.Rect(10, 550, 100, 35),
+    skip_button = Button(pygame.Rect(x_offset, 200, 100, 35),
                          "Skip",
                          screen,
-                         color=(146, 38, 162),
+                         color=(108, 117, 125),
                          font=font
                          )
 
     return skip_button
 
-def create_hazard_button(screen, font):
+def create_hazard_button(screen, font, x_offset=0):
     """
     Draws a button with 'Skip' text
     Returns rectangle object for mouse click check
     """
-    hazard_button = Button(pygame.Rect(10, 600, 100, 35),
+    hazard_button = Button(pygame.Rect(x_offset, 250, 100, 35),
                          "Hazard",
                          screen,
                          color=(146, 38, 162),
@@ -154,16 +154,60 @@ def create_hazard_button(screen, font):
 
     return hazard_button
 
-def create_custom_organism_button(screen, font):
+def create_custom_organism_button(screen, font, x_offset=0):
     """
     Draws a button with 'Skip' text
     Returns rectangle object for mouse click check
     """
-    hazard_button = Button(pygame.Rect(10, 650, 100, 35),
+    hazard_button = Button(pygame.Rect(x_offset, 300, 105, 35),
                          "Custom Organism",
+                         screen,
+                         color=(146, 38, 162),
+                         font=font,
+                         text_offset_x=0
+                         )
+
+    return hazard_button
+
+def create_radioactive_button(screen, font, x_offset=0):
+    """
+    Draws a button with text
+    Returns rectangle object for mouse click check
+    """
+    button = Button(pygame.Rect(x_offset, 350, 105, 35),
+                         "Radioactive Wave",
+                         screen,
+                         color=(146, 38, 162),
+                         font=font,
+                         text_offset_x=0
+                         )
+
+    return button
+
+def create_drought_button(screen, font, x_offset=0):
+    """
+    Draws a button with text
+    Returns rectangle object for mouse click check
+    """
+    button = Button(pygame.Rect(x_offset, 400, 100, 35),
+                         "Drought",
                          screen,
                          color=(146, 38, 162),
                          font=font
                          )
 
-    return hazard_button
+    return button
+
+def create_flood_button(screen, font, x_offset=0):
+    """
+    Draws a button with text
+    Returns rectangle object for mouse click check
+    """
+    button = Button(pygame.Rect(x_offset, 450, 100, 35),
+                         "Flood",
+                         screen,
+                         color=(146, 38, 162),
+                         font=font
+                         )
+
+    return button

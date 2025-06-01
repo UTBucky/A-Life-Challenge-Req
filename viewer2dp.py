@@ -5,8 +5,8 @@
 import pygame
 import numpy as np
 import hashlib
-from button import create_stop_start_button, create_save_button, create_load_button, create_skip_button, \
-    create_hazard_button, create_custom_organism_button
+import math
+from button import *
 from tk_user_made_species import run_popup
 
 
@@ -19,7 +19,6 @@ class Viewer2D:
     def __init__(
             self,
             environment,
-            window_size=(1600, 900),
             sidebar_width=200
     ):
         """
@@ -30,10 +29,12 @@ class Viewer2D:
 
         # Draw window based on controls rather than environment size
         self.sidebar_width = sidebar_width
-        self.window_size = window_size
         pygame.init()
-        # Choose what to display
-        self.screen = pygame.display.set_mode(window_size)
+        window = pygame.display.Info()
+        window_size = (window.current_w - 200, window.current_h - 200)
+        self.window_size = (window_size[0], window_size[1])
+
+        self.screen = pygame.display.set_mode(self.window_size)
 
         # Window caption, at the very very tippy top, might change to title
         pygame.display.set_caption("A-Life 2D Viewer")
@@ -44,7 +45,7 @@ class Viewer2D:
         self.timestep = 0
 
         # Scale factors for rendering based on env size vs screen size
-        self.main_area = (window_size[0] - sidebar_width, window_size[1])
+        self.main_area = (window_size[0] - 2*sidebar_width, window_size[1])
         self.scale_x = self.main_area[0] / self.env.get_width()
         self.scale_y = self.main_area[1] / self.env.get_length()
 
@@ -52,15 +53,26 @@ class Viewer2D:
         self._running = True
 
         # Creates reference to button objects for use in draw/handle_event functions
+        x_offset = self.window_size[0] - self.sidebar_width + self.sidebar_width // 3
         self._stop_start_button = create_stop_start_button(
-            self.screen, self.font, self._running)
-        self._save_button = create_save_button(self.screen, self.font)
-        self._load_button = create_load_button(self.screen, self.font)
-        self._skip_button = create_skip_button(self.screen, self.font)
-        self._hazard_button = create_hazard_button(self.screen, self.font)
-        self._custom_organism_button = create_custom_organism_button(self.screen, self.font)
+            self.screen, self.font, self._running, x_offset)
+        self._save_button = create_save_button(self.screen, self.font, x_offset)
+        self._load_button = create_load_button(self.screen, self.font, x_offset)
+        self._skip_button = create_skip_button(self.screen, self.font, x_offset)
+        self._hazard_button = create_hazard_button(self.screen, self.font, x_offset)
+        self._custom_organism_button = create_custom_organism_button(self.screen, self.font, x_offset)
+        self._radioactive_button = create_radioactive_button(self.screen, self.font, x_offset)
+        self._drought_button = create_drought_button(self.screen, self.font, x_offset)
+        self._flood_button = create_flood_button(self.screen, self.font, x_offset)
         self._meteor_struck = False
         self._species_colors = {}
+        self._ring_radius = 1
+        self._center = (window_size[0] / 2, window_size[1] / 2)
+        self._radioactive_started = False
+        self._radioactive = False
+        self._flood = False
+        self._drought = False
+        self._notification_time = 0
 
     def get_env(self):
         return self.env
@@ -76,6 +88,7 @@ class Viewer2D:
         self.draw_terrain()
         self.draw_organisms()
         self.draw_sidebar()
+        self.draw_right_sidebar()
         self.draw_generation_stat()
         self.draw_total_population_stat()
         self.draw_additional_stats()
@@ -87,9 +100,32 @@ class Viewer2D:
         self._skip_button.draw_button()
         self._hazard_button.draw_button()
         self._custom_organism_button.draw_button()
+        self._radioactive_button.draw_button()
+        self._drought_button.draw_button()
+        self._flood_button.draw_button()
 
         if self._meteor_struck:             # Checks for hazard button click
             self.draw_meteor()
+
+        if self._radioactive_started:
+            self.env.get_organisms().apply_radioactive_wave()
+            self._radioactive_started = False
+
+        if self._radioactive:
+            self.draw_radioactive_wave()
+
+        if self._notification_time > 5:
+            self._notification_time = 0
+            self._flood = False
+            self._drought = False
+
+        if self._flood:
+            self.draw_flood()
+            self._notification_time += 1
+        
+        if self._drought:
+            self.draw_drought()
+            self._notification_time += 1
 
         pygame.display.flip()
 
@@ -245,6 +281,16 @@ class Viewer2D:
             pygame.Rect(0, 0, self.sidebar_width, self.window_size[1])
         )
 
+    def draw_right_sidebar(self):
+        """
+        Draws the right sidebar
+        """
+        
+        pygame.draw.rect(
+            self.screen, (30, 30, 30),
+            pygame.Rect(self.window_size[0] - self.sidebar_width, 0, self.sidebar_width, self.window_size[1])
+        )
+
     def draw_generation_stat(self):
         """
         Display generation counter
@@ -293,6 +339,65 @@ class Viewer2D:
 
         # Inner fill - solid gray circle
         pygame.draw.circle(self.screen, (169, 169, 169), (x, y), int(radius * 0.6))
+    
+    def draw_radioactive_wave(self):
+        """Renders the radioactive wave on-screen"""
+
+        color_1 = (144, 238, 144)
+        color_2 = (34, 139, 34)
+        color_3 = (0, 100, 0)
+
+        radius_2 = max(self._ring_radius - 1, 0)
+        radius_3 = max(self._ring_radius - 2, 0)
+
+        pygame.draw.circle(self.screen, color_1, self._center, self._ring_radius, 4)
+        pygame.draw.circle(self.screen, color_2, self._center, radius_2, 4)
+        pygame.draw.circle(self.screen, color_3, self._center, radius_3, 4)
+
+        self._ring_radius += 20
+
+        if self._ring_radius >= min(self.main_area) - self.sidebar_width:
+            self._radioactive_started = True
+            self._radioactive = False
+            self._ring_radius = 1
+
+    def draw_flood(self):
+        """Renders the flood on-screen"""
+        
+        color = (100, 149, 237)
+        
+        pygame.draw.circle(self.screen, color, self._center, 40)
+        
+        apex = (self._center[0], self._center[1] - 100)
+        base_left = (self._center[0] - 37, self._center[1] - 15)
+        base_right = (self._center[0] + 37, self._center[1] - 15)
+        points = [apex, base_left, base_right]
+        pygame.draw.polygon(self.screen, color, points)
+
+    def draw_drought(self):
+        """Renders the drought on-screen"""
+        
+        sun_color = (255, 223, 0)
+        ray_color = (255, 200, 0)
+        num_rays = 8
+        ray_length = 50
+
+        pygame.draw.circle(self.screen, sun_color, self._center, 40)
+
+        for i in range(num_rays):
+            angle = i * (360 / num_rays)
+            radian_angle = math.radians(angle)
+            point_1 = (
+                self._center[0] + 40 * math.cos(radian_angle),
+                self._center[1] + 40 * math.sin(radian_angle)
+            )
+
+            point_2 = (
+                self._center[0] + (40 + ray_length) * math.cos(radian_angle),
+                self._center[1] + (40 + ray_length) * math.sin(radian_angle)
+            )
+
+            pygame.draw.line(self.screen, ray_color, point_1, point_2, 3)
 
     def apply_meteor_effect(self):
         """Calls the apply_meteor_damage method from Organisms, using base damage
@@ -349,6 +454,19 @@ class Viewer2D:
                         for _ in range(count):
                             # TODO: Creation of custom organism, either before simulation start or adding new orgs
                             pass
+                
+                if self._radioactive_button.get_rectangle().collidepoint(event.pos): 
+                    self._radioactive = True
+                
+                if self._drought_button.get_rectangle().collidepoint(event.pos):
+                    self.env.drought()
+                    self._drought = True
+                    self._flood = False
+
+                if self._flood_button.get_rectangle().collidepoint(event.pos):
+                    self.env.flood()
+                    self._flood = True
+                    self._drought = False
 
                 # TODO: Add the following button for creating a phylogenetic tree.
                 # tree = Phylo.read((StringIO(self.env.get_organisms().get_lineage_tracker().full_forest_newick())), "newick")

@@ -889,6 +889,83 @@ class Organisms:
         self._organisms['energy'][indices] = 0
         print(f"[Meteor] Killed {len(indices)} organisms.")
 
+    def apply_radioactive_wave(self):
+
+        # Generate random genes for all organisms
+        (
+            # — Morphological traits —
+            species_arr,
+            size_arr,
+            camouflage_arr,
+            defense_arr,
+            attack_arr,
+            vision_arr,
+
+            # — Metabolic parameters —
+            metabolism_rate_arr,
+            nutrient_efficiency_arr,
+            diet_type_arr,
+
+            # — Reproduction settings —
+            fertility_rate_arr,
+            offspring_count_arr,
+            reproduction_type_arr,
+
+            # — Social behaviors —
+            pack_behavior_arr,
+            symbiotic_arr,
+
+            # — Locomotion capabilities —
+            swim_arr,
+            walk_arr,
+            fly_arr,
+            speed_arr,
+
+            # — Energy state —
+            energy_arr,
+        ) = initialize_random_traits(self._organisms.shape[0], self._gene_pool)
+
+        # Apply new genes to organisms
+        copy_valid_count(
+            self._organisms,
+            self._organisms.shape[0],
+
+            # morphological traits
+            species_arr,
+            size_arr,
+            camouflage_arr,
+            defense_arr,
+            attack_arr,
+            vision_arr,
+
+            # metabolic characteristics
+            metabolism_rate_arr,
+            nutrient_efficiency_arr,
+            diet_type_arr,
+
+            # reproduction parameters
+            fertility_rate_arr,
+            offspring_count_arr,
+            reproduction_type_arr,
+
+            # behaviors
+            pack_behavior_arr,
+            symbiotic_arr,
+
+            # movement capabilities
+            swim_arr,
+            walk_arr,
+            fly_arr,
+            speed_arr,
+
+            # state
+            energy_arr,
+        )
+
+        new_names = random_name_generation(self._organisms.shape[0])
+
+        self._organisms['species'] = new_names
+
 def random_name_generation(
     num_to_gen:     int,
     min_syllables:  int = 2,

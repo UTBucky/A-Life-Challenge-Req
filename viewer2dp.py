@@ -18,7 +18,6 @@ class Viewer2D:
     def __init__(
             self,
             environment,
-            window_size=(1600, 900),
             sidebar_width=200
     ):
         """
@@ -29,10 +28,12 @@ class Viewer2D:
 
         # Draw window based on controls rather than environment size
         self.sidebar_width = sidebar_width
-        self.window_size = window_size
         pygame.init()
-        # Choose what to display
-        self.screen = pygame.display.set_mode(window_size)
+        window = pygame.display.Info()
+        window_size = (window.current_w - 200, window.current_h - 200)
+        self.window_size = (window_size[0], window_size[1])
+
+        self.screen = pygame.display.set_mode(self.window_size)
 
         # Window caption, at the very very tippy top, might change to title
         pygame.display.set_caption("A-Life 2D Viewer")
@@ -43,7 +44,7 @@ class Viewer2D:
         self.timestep = 0
 
         # Scale factors for rendering based on env size vs screen size
-        self.main_area = (window_size[0] - sidebar_width, window_size[1])
+        self.main_area = (window_size[0] - 2*sidebar_width, window_size[1])
         self.scale_x = self.main_area[0] / self.env.get_width()
         self.scale_y = self.main_area[1] / self.env.get_length()
 
@@ -51,16 +52,17 @@ class Viewer2D:
         self._running = True
 
         # Creates reference to button objects for use in draw/handle_event functions
+        x_offset = self.window_size[0] - self.sidebar_width + self.sidebar_width // 3
         self._stop_start_button = create_stop_start_button(
-            self.screen, self.font, self._running)
-        self._save_button = create_save_button(self.screen, self.font)
-        self._load_button = create_load_button(self.screen, self.font)
-        self._skip_button = create_skip_button(self.screen, self.font)
-        self._hazard_button = create_hazard_button(self.screen, self.font)
-        self._custom_organism_button = create_custom_organism_button(self.screen, self.font)
-        self._radioactive_button = create_radioactive_button(self.screen, self.font)
-        self._drought_button = create_drought_button(self.screen, self.font)
-        self._flood_button = create_flood_button(self.screen, self.font)
+            self.screen, self.font, self._running, x_offset)
+        self._save_button = create_save_button(self.screen, self.font, x_offset)
+        self._load_button = create_load_button(self.screen, self.font, x_offset)
+        self._skip_button = create_skip_button(self.screen, self.font, x_offset)
+        self._hazard_button = create_hazard_button(self.screen, self.font, x_offset)
+        self._custom_organism_button = create_custom_organism_button(self.screen, self.font, x_offset)
+        self._radioactive_button = create_radioactive_button(self.screen, self.font, x_offset)
+        self._drought_button = create_drought_button(self.screen, self.font, x_offset)
+        self._flood_button = create_flood_button(self.screen, self.font, x_offset)
         self._meteor_struck = False
         self._species_colors = {}
         self._ring_radius = 1
@@ -81,6 +83,7 @@ class Viewer2D:
         self.draw_terrain()
         self.draw_organisms()
         self.draw_sidebar()
+        self.draw_right_sidebar()
         self.draw_generation_stat()
         self.draw_total_population_stat()
         self.draw_additional_stats()
@@ -255,6 +258,16 @@ class Viewer2D:
         pygame.draw.rect(
             self.screen, (30, 30, 30),
             pygame.Rect(0, 0, self.sidebar_width, self.window_size[1])
+        )
+
+    def draw_right_sidebar(self):
+        """
+        Draws the right sidebar
+        """
+        
+        pygame.draw.rect(
+            self.screen, (30, 30, 30),
+            pygame.Rect(self.window_size[0] - self.sidebar_width, 0, self.sidebar_width, self.window_size[1])
         )
 
     def draw_generation_stat(self):

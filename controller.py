@@ -32,7 +32,7 @@ def main():
     env.set_meteor(meteor)
 
     # Initialize PyGame visualization
-    viewer = Viewer2D(env, window_size=(1200, 600))
+    viewer = Viewer2D(env)
 
     # Run PyGame methods - could probably be combined into an "execute" method
     # in grid_viewer, here for now to make easier to see what is running

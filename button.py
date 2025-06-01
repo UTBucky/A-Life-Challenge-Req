@@ -3,6 +3,9 @@ import pygame
 import pickle
 from tkinter import filedialog
 
+BUTTON_WIDTH = 150
+BUTTON_HEIGHT = 35
+BUTTON_X = 10
 
 class Button:
     """
@@ -20,18 +23,15 @@ class Button:
                  rectangle=pygame.Rect(10, 600, 100, 50),
                  text="Insert text",
                  screen=None,
-                 text_offset_x=35,
-                 text_offset_y=8,
                  color=(200, 0, 0),
                  font=None
                  ):
         self._rectangle = rectangle
         self._text = text
         self._screen = screen
-        self._text_offset_x = text_offset_x
-        self._text_offset_y = text_offset_y
         self._color = color
         self._font = font
+        self._hovered = False
 
     def get_font(self):
         return self._font
@@ -39,14 +39,26 @@ class Button:
     def get_rectangle(self):
         return self._rectangle
 
+    def check_hover(self, mouse_pos):
+        self._hovered = self._rectangle.collidepoint(mouse_pos)
+
+    def set_text(self, new_text):
+        self._text = new_text
+
+    def set_color(self, new_color):
+        self._color = new_color
+
     def draw_button(self):
         btn_text = self._font.render(self._text, True, (255, 255, 255))
-        pygame.draw.rect(self._screen, self._color, self._rectangle)
-        self._screen.blit(
-            btn_text,
-                         (self._rectangle.x + self._text_offset_x,
-                          self._rectangle.y + self._text_offset_y)
-        )
+        color = tuple(min(255, c + 30) if self._hovered else c for c in self._color)
+        # Draw white border
+        border_rect = self._rectangle.inflate(4, 4)
+        pygame.draw.rect(self._screen, (255, 255, 255), border_rect, border_radius=10)
+        # Draw inner colored button
+        pygame.draw.rect(self._screen, color, self._rectangle, border_radius=8)
+
+        text_rect = btn_text.get_rect(center=self._rectangle.center)
+        self._screen.blit(btn_text, text_rect)
 
     def save_simulation_prompt(self, env, timestep):
         """Opens file explorer and allows user to name save file and set location"""
@@ -81,89 +93,26 @@ class Button:
 
 
 # Portable functions to create the required button styles
-def create_stop_start_button(screen, font, running):
-    """
-    Draws a single button with that shows start/stop depending on run state
-    Returns rectangle object for mouse click check
-    """
-    stop_start_button = Button(pygame.Rect(10, 400, 100, 35),
-                               "Pause" if running else "Start",
-                               screen,
-                               color=(89, 236, 52),
-                               font=font
-                               )
-
-    return stop_start_button
-
+def create_stop_start_button(screen, font, text="START", color=(50, 200, 50)):
+    return Button(pygame.Rect(BUTTON_X, 400, BUTTON_WIDTH, BUTTON_HEIGHT),
+                  text, screen, color=color, font=font)
 
 def create_save_button(screen, font):
-    """
-    Draws a button with 'Save' text
-    Returns rectangle object for mouse click check
-    """
-    save_button = Button(pygame.Rect(10, 450, 100, 35),
-                         "Save",
-                         screen,
-                         color=(52, 52, 236),
-                         font=font
-                         )
-
-    return save_button
-
+    return Button(pygame.Rect(BUTTON_X, 450, BUTTON_WIDTH, BUTTON_HEIGHT),
+                  "SAVE", screen, color=(52, 52, 236), font=font)
 
 def create_load_button(screen, font):
-    """
-    Draws a button with 'Load' text
-    Returns rectangle object for mouse click check
-    """
-    load_button = Button(pygame.Rect(10, 500, 100, 35),
-                         "Load",
-                         screen,
-                         color=(52, 157, 236),
-                         font=font
-                         )
-
-    return load_button
-
+    return Button(pygame.Rect(BUTTON_X, 500, BUTTON_WIDTH, BUTTON_HEIGHT),
+                  "LOAD", screen, color=(52, 157, 236), font=font)
 
 def create_skip_button(screen, font):
-    """
-    Draws a button with 'Skip' text
-    Returns rectangle object for mouse click check
-    """
-    skip_button = Button(pygame.Rect(10, 550, 100, 35),
-                         "Skip",
-                         screen,
-                         color=(146, 38, 162),
-                         font=font
-                         )
-
-    return skip_button
+    return Button(pygame.Rect(BUTTON_X, 550, BUTTON_WIDTH, BUTTON_HEIGHT),
+                  "SKIP", screen, color=(40, 40, 40), font=font)
 
 def create_hazard_button(screen, font):
-    """
-    Draws a button with 'Skip' text
-    Returns rectangle object for mouse click check
-    """
-    hazard_button = Button(pygame.Rect(10, 600, 100, 35),
-                         "Hazard",
-                         screen,
-                         color=(146, 38, 162),
-                         font=font
-                         )
-
-    return hazard_button
+    return Button(pygame.Rect(BUTTON_X, 600, BUTTON_WIDTH, BUTTON_HEIGHT),
+                  "METEOR", screen, color=(204, 85, 0), font=font)
 
 def create_custom_organism_button(screen, font):
-    """
-    Draws a button with 'Skip' text
-    Returns rectangle object for mouse click check
-    """
-    hazard_button = Button(pygame.Rect(10, 650, 150, 35),
-                         "Custom Organism",
-                         screen,
-                         color=(146, 38, 162),
-                         font=font
-                         )
-
-    return hazard_button
+    return Button(pygame.Rect(BUTTON_X, 650, BUTTON_WIDTH, BUTTON_HEIGHT),
+                  "CUSTOM ORGANISM", screen, color=(146, 38, 162), font=font)

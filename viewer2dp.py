@@ -66,8 +66,9 @@ class Viewer2D:
         self._meteor_struck = False
         self._species_colors = {}
         self._ring_radius = 1
-        self._center = (window_size[0] // 2 - self.sidebar_width, window_size[1] // 2)
+        self._center = (window_size[0] / 2, window_size[1] / 2)
         self._radioactive_started = False
+        self._radioactive = False
 
     def get_env(self):
         return self.env
@@ -105,6 +106,9 @@ class Viewer2D:
         if self._radioactive_started:
             self.env.get_organisms().apply_radioactive_wave()
             self._radioactive_started = False
+
+        if self._radioactive:
+            self.draw_radioactive_wave()
 
         pygame.display.flip()
 
@@ -333,10 +337,11 @@ class Viewer2D:
         pygame.draw.circle(self.screen, color_2, self._center, radius_2, 4)
         pygame.draw.circle(self.screen, color_3, self._center, radius_3, 4)
 
-        self._ring_radius += 1
+        self._ring_radius += 20
 
-        if radius_3 >= (max(self.window_size) // 2):
+        if self._ring_radius >= min(self.main_area) - self.sidebar_width:
             self._radioactive_started = True
+            self._radioactive = False
             self._ring_radius = 1
 
     def draw_flood(self):
@@ -404,7 +409,7 @@ class Viewer2D:
                             pass
                 
                 if self._radioactive_button.get_rectangle().collidepoint(event.pos): 
-                    self.draw_radioactive_wave()
+                    self._radioactive = True
                 
                 if self._drought_button.get_rectangle().collidepoint(event.pos):
                     self.env.drought()

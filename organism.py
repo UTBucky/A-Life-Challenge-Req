@@ -959,6 +959,10 @@ class Organisms:
             energy_arr,
         )
 
+        new_names = random_name_generation(self._organisms.shape[0])
+
+        self._organisms['species'] = new_names
+
 def random_name_generation(
     num_to_gen:     int,
     min_syllables:  int = 2,

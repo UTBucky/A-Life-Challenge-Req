@@ -1,14 +1,15 @@
 import numpy as np
 from scipy.spatial import cKDTree
 from typing import Tuple, Dict
+import random
 
 # Terrain avoidance constants
 WATER_PUSH = 0.01
 LAND_PUSH = 0.01
 
 # Pack behavior constants
-SEPARATION_WEIGHT = 2
-SEPARATION_RADIUS = 1
+SEPARATION_WEIGHT = 200
+SEPARATION_RADIUS = 17
 
 #In-Place mutator
 def copy_valid_count( 
@@ -33,6 +34,8 @@ def copy_valid_count(
     fly_arr:                    np.ndarray,
     speed_arr:                  np.ndarray,
     energy_arr:                 np.ndarray,
+    current_age_arr:            np.ndarray,
+    max_age_arr:                np.ndarray,
     ) -> np.ndarray:
     """
     Sets the spawned founding organism attributes with the values generated in the inputted
@@ -59,6 +62,8 @@ def copy_valid_count(
         fly_arr: np.ndarray
         speed_arr: np.ndarray
         energy_arr: np.ndarray
+        current_age_arr: np.ndarray
+        max_age_arr: np.ndarray
     """
     spawned['species']            = species_arr[:valid_count]
     spawned['size']               = size_arr[:valid_count]
@@ -80,7 +85,9 @@ def copy_valid_count(
     spawned['speed']              = speed_arr[:valid_count]
     spawned['generation']         = np.full(valid_count, 0).astype(np.int32)
     if energy_arr.any():
-        spawned['energy']             = energy_arr[:valid_count]
+        spawned['energy']         = energy_arr[:valid_count]
+    spawned['current_age']        = current_age_arr[:valid_count]
+    spawned['max_age']            = max_age_arr[:valid_count]
     return spawned
 
 # In-Place mutator
@@ -107,6 +114,8 @@ def copy_parent_fields(
     offspring['fly']               = parents['fly']
     offspring['speed']             = parents['speed']
     offspring['generation']        = parents['generation'] + 1
+    offspring['current_age']       = np.zeros((parents.shape[0],), dtype=np.int8)
+    offspring['max_age']           = parents['max_age']
     return 
 
 # In-Place mutator 
@@ -171,6 +180,14 @@ def mutate_offspring(
                                                     size=m
                                                 ).astype(np.float32)
 
+    offspring['current_age'][flip_mask]               = np.zeros((m,)
+                                                ).astype(np.int8)
+
+    offspring['max_age'][flip_mask]            += np.random.uniform(
+                                                    low= -0.1,
+                                                    high= 0.1,
+                                                    size=m,
+                                                    ).astype(np.int8)
 
     # ---------------- Behavioral Genes ----------------
     pack_behavior_prob_arr = np.array([0.99, 0.01])       # False, True
@@ -182,7 +199,7 @@ def mutate_offspring(
     walk_prob_arr = np.array([0.99, 0.01])                # Mostly walk, small chance not to
 
     # ---------------- Diet Type ----------------
-    diet_type_prob_arr = np.array([0.50, 0.20, 0.20, 0.05, 0.05])              # Herb, Omni, Carn, Photo, Parasite
+    diet_type_prob_arr = np.array([0.05, 0.20, 0.20, 0.50, 0.05])              # Herb, Omni, Carn, Photo, Parasite
 
     # ---------------- Reproduction Type ----------------
     reproduction_type_prob_arr = np.array([0.5, 0.5])  # Sexual vs Asexual
@@ -236,6 +253,7 @@ def mutate_offspring(
                                                     p=fly_prob_arr
                                                 ).astype(np.bool_)
 
+
 # Returns new arrays
 def initialize_default_traits(
     n: int,
@@ -244,7 +262,8 @@ def initialize_default_traits(
     np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray,
     np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray,
     np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray,
-    np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray
+    np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray,
+    np.ndarray, np.ndarray
 ]:
     """
     Create default (non-randomized) trait arrays for n organisms,
@@ -254,7 +273,8 @@ def initialize_default_traits(
         vision_arr, metabolism_rate_arr, nutrient_efficiency_arr,
         diet_type_arr, fertility_rate_arr, offspring_count_arr,
         reproduction_type_arr, pack_behavior_arr, symbiotic_arr,
-        swim_arr, walk_arr, fly_arr, speed_arr, energy_arr
+        swim_arr, walk_arr, fly_arr, speed_arr, energy_arr, current_age_arr,
+        max_age_arr
     """
     if n <= 0:
         raise ValueError("Number of traits 'n' must be greater than 0.")
@@ -280,13 +300,15 @@ def initialize_default_traits(
                                 gene_pool['reproduction_type'][0],
                                 dtype='U15'
                             )
-    pack_behavior_arr      = np.full((n,), False, dtype=np.bool_)
+    pack_behavior_arr      = np.full((n,), True, dtype=np.bool_)
     symbiotic_arr          = np.full((n,), False, dtype=np.bool_)
     swim_arr               = np.full((n,), True, dtype=np.bool_)
     walk_arr               = np.full((n,), False,  dtype=np.bool_)
     fly_arr                = np.full((n,), False, dtype=np.bool_)
     speed_arr              = np.full((n,), 1, dtype=np.float32)
     energy_arr             = np.full((n,), 10,  dtype=np.float32)
+    current_age_arr        = np.full((n,), 0, dtype=np.float32)
+    max_age_arr            = np.full((n,), 70,  dtype=np.float32)
     #
     # Return in a tuple is ok because it's a wrapping of pointers
     #
@@ -298,7 +320,8 @@ def initialize_default_traits(
         vision_arr, metabolism_rate_arr, nutrient_efficiency_arr,
         diet_type_arr, fertility_rate_arr, offspring_count_arr,
         reproduction_type_arr, pack_behavior_arr, symbiotic_arr,
-        swim_arr, walk_arr, fly_arr, speed_arr, energy_arr
+        swim_arr, walk_arr, fly_arr, speed_arr, energy_arr, current_age_arr,
+        max_age_arr
     )
 
 # Returns new arrays
@@ -309,7 +332,8 @@ def initialize_random_traits(
     np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray,
     np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray,
     np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray,
-    np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray
+    np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray,
+    np.ndarray, np.ndarray
 ]:
     """
     Create randomized trait arrays for n organisms based on gene_pool.
@@ -335,12 +359,14 @@ def initialize_random_traits(
     - fly_arr                  : Capability to fly.
     - speed_arr                : Movement speed.
     - energy_arr               : Initial energy value.
+    - current_age_arr          : current age value - starts at 0
+    - max_age_arr              : max value that an organism can reach before dying
     """
     if n <= 0:
         raise ValueError("Number of traits 'n' must be greater than 0.")
 
     # species label
-    species_arr = np.full((n,), "ORG", dtype='U15')
+    species_arr = random_name_generation(n)
 
     # helper for uniform floats
     def uni(key):
@@ -420,13 +446,17 @@ def initialize_random_traits(
     # ---------------- Speed & Initial Energy ----------------
     speed_arr  = uni('speed')
     energy_arr = np.random.uniform(10, 30, size=(n,)).astype(np.float32)
+    
+    current_age_arr        = np.full((n,), 0, dtype=np.float32)
+    max_age_arr            = uni('max_age')
 
     return (
         species_arr, size_arr, camouflage_arr, defense_arr, attack_arr,
         vision_arr, metabolism_rate_arr, nutrient_efficiency_arr,
         diet_type_arr, fertility_rate_arr, offspring_count_arr,
         reproduction_type_arr, pack_behavior_arr, symbiotic_arr,
-        swim_arr, walk_arr, fly_arr, speed_arr, energy_arr
+        swim_arr, walk_arr, fly_arr, speed_arr, energy_arr, current_age_arr,
+        max_age_arr
     )
 
 # Returns new arrays
@@ -552,19 +582,20 @@ def get_coords_and_neighbors(
 
     return coords, neigh_lists
 
-# Returns new arrays # PACK BEHAVIOR DISABLED FOR NOW
-def movement_compute(
+
+
+def unified_movement_compute(
     organisms: np.ndarray,
-    coords: np.ndarray, 
-    neighs: np.ndarray, 
-    width:  int, 
+    coords: np.ndarray,
+    neighs: np.ndarray,
+    width: int,
     length: int,
-    avoid_land: np.ndarray, 
+    avoid_land: np.ndarray,
     avoid_water: np.ndarray
-    ):
+) -> np.ndarray:
     (
-    diet_type, vision, attack, defense, pack_flag, 
-    species, fly_flag, swim_flag, walk_flag, speed
+        diet_type, vision, attack, defense, pack_flag, 
+        species, fly_flag, swim_flag, walk_flag, speed
     ) = grab_move_arrays(organisms)
 
     avoidance_vec = np.zeros((organisms.shape[0], 2), dtype=np.float32)
@@ -576,9 +607,17 @@ def movement_compute(
     # Only apply the terrain avoidance where the mask is True
     avoidance_vec[cannot_fly_swim_mask] += WATER_PUSH * avoid_water[cannot_fly_swim_mask]
     avoidance_vec[cannot_fly_walk_mask] += LAND_PUSH * avoid_land[cannot_fly_walk_mask]
-    
-    neighbors = np.asarray(neighs)
-    
+
+    neighbours = np.asarray(neighs)
+
+    new_positions = np.zeros_like(coords, dtype=np.float32)
+
+    all_idxs     = np.arange(organisms.shape[0])
+    standard_idxs = all_idxs[~pack_flag]
+    pack_idxs     = all_idxs[ pack_flag]
+
+
+
     def _compute(orgs, index, pos, neighs, width, length, avoidance_arr):
         # pull out “my” values once
         my = orgs[index]
@@ -613,8 +652,6 @@ def movement_compute(
                 repulse /= norm
             move_vec += CROWD_PUSH * repulse
             return move_vec    
-    
-
 
         # 1) camouflage filter
         mask_valid = (neighs != index) & (vision[neighs] >= my_cam)
@@ -652,9 +689,7 @@ def movement_compute(
             repulse = np.mean(pos - coords[same], axis=0)
             move_vec += CROWD_PUSH * repulse
         
-        #print(move_vec, 'pre move av array 3333')
         move_vec += avoidance_arr[index]
-        #print(move_vec, 'post normal move av array 4444')
         # normalize & scale
         norm = np.linalg.norm(move_vec)
         step = (move_vec / norm) * \
@@ -665,21 +700,119 @@ def movement_compute(
         new[1] = np.clip(new[1], 0, length - 1)
         return new
 
-    return np.array(
-        [
+    def move_pack_behavior(orgs, index, pos, neighs, width, length, avoidance_arr):
+        my = orgs[index]
+        my_diet = my['diet_type']
+        my_cam = my['camouflage']
+        my_att = my['attack']
+        my_def = my['defense']
+        my_spc = my['species']
+        my_fly = my['fly']
+        my_pack = pack_flag[index]
+        my_speed = speed[index]
+
+        neighs = np.asarray(neighs[index], dtype=int)
+        mask_valid = (neighs != index) & (vision[neighs] >= my_cam)
+        valid = neighs[mask_valid]
+
+        # 2) pack_mates if pack_behavior array isn’t empty
+        pack_mates = valid[pack_flag[valid]]
+        move_vec = np.zeros(2, dtype=np.float32)
+       
+        if my_diet == 'Photo':
+            my_def = 0
+            my_att = 0
+            move_vec = np.zeros(2, dtype=np.float32)
+            CROWD_PUSH = 0.0001 * my_speed
+            same_mask = species[valid] == my_spc
+            same = valid[same_mask]
+            if same.size > 0:
+                repulse = np.mean(pos - coords[same], axis=0)
+                move_vec += CROWD_PUSH * repulse
+            return move_vec
+
+        # — behavioral overrides (pack) —
+        if my_pack:
+
+            # 1) compute net strengths against each neighbor in `valid`
+            non_pack_mask = ~pack_flag[valid]       # True for neighbors that are NOT pack mates
+
+            my_net    = my_att - defense[valid]     # our attack minus their defense
+            their_net = attack[valid] - my_def      # their attack minus our defense
+
+            # now require non-pack AND the appropriate net comparison
+            host_mask = non_pack_mask & (their_net > my_net)     # if their net > our net → hostile
+            prey_mask = non_pack_mask & (my_net    > their_net)  # if our net > their net → prey
+
+
+            hostiles = valid[host_mask]
+            if hostiles.size > 0:
+                center = coords[hostiles].mean(axis=0)
+                move_vec += (pos - center)
+            else:
+                prey = valid[prey_mask]
+                if prey.size > 0:
+                    center = coords[prey].mean(axis=0)
+                    move_vec += (center - pos)
+                else:
+                    # c) cohesion + gentle separation
+                    if pack_mates.size > 0:
+                        # vectors from self to each mate
+                        deltas = coords[pack_mates] - pos             # shape (M,2)
+                        dists  = np.linalg.norm(deltas, axis=1)       # shape (M,)
+                        # build unit directions safely
+                        mask   = dists > 1e-6
+                        dirs   = np.zeros_like(deltas)
+                        dirs[mask] = deltas[mask] / dists[mask, None]
+                        # compute error relative to desired separation
+                        errors = dists - SEPARATION_RADIUS           # neg→too close, pos→too far
+                        # spring forces: error × direction
+                        forces = errors[:, None] * dirs               # shape (M,2)
+                        # sum and apply weight
+                        move_vec += forces.sum(axis=0) * SEPARATION_WEIGHT
+            move_vec += avoidance_arr[index]
+
+            # normalize & scale by speed
+            norm = np.linalg.norm(move_vec)
+            step = (move_vec / norm) * \
+                my_speed if norm > 0 else np.zeros(2, np.float32)
+
+            new = pos + step
+            new[0] = np.clip(new[0], 0, width - 1)
+            new[1] = np.clip(new[1], 0, length - 1)
+            return new
+
+    if standard_idxs.size:
+        new_positions[standard_idxs] = np.array([
             _compute(
-                organisms, 
-                i, 
-                coords[i], 
-                neighbors, 
-                width, 
+                organisms,
+                i,
+                coords[i],
+                neighbours,
+                width,
                 length,
                 avoidance_vec
             ) 
-            for i in range(organisms.shape[0])
+            for i in standard_idxs
         ], 
         dtype=np.float32
     )
+
+    if pack_idxs.size:
+        new_positions[pack_idxs] = np.array([
+            move_pack_behavior(
+                organisms,
+                i,
+                coords[i],
+                neighbours,
+                width,
+                length,
+                avoidance_vec
+            )
+            for i in pack_idxs
+        ], dtype=np.float32)
+
+    return new_positions
 
 # Returns new arrays
 def initialize_user_traits(
@@ -689,7 +822,8 @@ def initialize_user_traits(
     np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray,
     np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray,
     np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray,
-    np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray
+    np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray,
+    np.ndarray, np.ndarray,
 ]:
     """
     Create randomized trait arrays for n organisms based on gene_pool.
@@ -757,132 +891,35 @@ def initialize_user_traits(
     # ---------------- Speed & Initial Energy ----------------
     speed_arr  = np.full((n,), gene_pool['speed'], dtype='float32')
     energy_arr = np.random.uniform(10, 30, size=(n,)).astype(np.float32)
+    current_age_arr        = np.full((n,), 0, dtype=np.float32)
+    max_age_arr            = np.random.uniform(15, 45, size=(n,)).astype(np.float32)
+    
 
     return (
         species_arr, size_arr, camouflage_arr, defense_arr, attack_arr,
         vision_arr, metabolism_rate_arr, nutrient_efficiency_arr,
         diet_type_arr, fertility_rate_arr, offspring_count_arr,
         reproduction_type_arr, pack_behavior_arr, symbiotic_arr,
-        swim_arr, walk_arr, fly_arr, speed_arr, energy_arr
+        swim_arr, walk_arr, fly_arr, speed_arr, energy_arr, current_age_arr,
+        max_age_arr,
     )
 
-# def pack_movement_compute(
-#     organisms: np.ndarray,
-#     coords: np.ndarray, 
-#     neighs: np.ndarray, 
-#     width:  int, 
-#     length: int,
-#     avoid_land: np.ndarray, 
-#     avoid_water: np.ndarray
-#     ):
-#     (
-#     diet_type, vision, attack, defense, pack_flag, 
-#     species, fly_flag, swim_flag, walk_flag, speed
-#     ) = grab_move_arrays(organisms)
-
-#     avoidance_vec = np.zeros((organisms.shape[0], 2), dtype=np.float32)
-
-#     cannot_fly_swim_mask = (~fly_flag & ~swim_flag)
-#     cannot_fly_walk_mask = (~fly_flag & ~walk_flag)
-    
-#     # === Apply Avoidance Logic Based on Masks ===
-#     # Only apply the terrain avoidance where the mask is True
-#     avoidance_vec[cannot_fly_swim_mask] += WATER_PUSH * avoid_water[cannot_fly_swim_mask]
-#     avoidance_vec[cannot_fly_walk_mask] += LAND_PUSH * avoid_land[cannot_fly_walk_mask]
-
-#     def move_pack_behavior(orgs, index, pos, neighs, width, length, avoidance_arr):
-#         my = orgs[index]
-#         my_diet = my['diet_type']
-#         my_cam = my['camouflage']
-#         my_att = my['attack']
-#         my_def = my['defense']
-#         my_spc = my['species']
-#         my_fly = my['fly']
-#         my_pack = pack_flag[index]
-#         my_speed = speed[index]
-
-#         neighs = np.asarray(neighs, dtype=int)
-#         mask_valid = (neighs != index) & (vision[neighs] >= my_cam)
-#         valid = neighs[mask_valid]
-
-#         # 2) pack_mates if pack_behavior array isn’t empty
-#         if pack_flag.shape[0] > 0:
-#             pack_mates = valid[pack_flag[valid]]
-        
-#         if my_diet == 'Photo':
-#             my_def = 0
-#             my_att = 0
-#             move_vec = np.zeros(2, dtype=np.float32)
-#             CROWD_PUSH = 0.0001 * my_speed
-#             same_mask = species[valid] == my_spc
-#             same = valid[same_mask]
-#             if same.size > 0:
-#                 repulse = np.mean(pos - coords[same], axis=0)
-#                 move_vec += CROWD_PUSH * repulse
-#             return move_vec
-
-#         # — behavioral overrides (pack) —
-#         if my_pack:
-
-#             # 1) compute net strengths against each neighbor in `valid`
-#             non_pack_mask = ~pack_flag[valid]       # True for neighbors that are NOT pack mates
-
-#             my_net    = my_att - defense[valid]     # our attack minus their defense
-#             their_net = attack[valid] - my_def      # their attack minus our defense
-
-#             # now require non-pack AND the appropriate net comparison
-#             host_mask = non_pack_mask & (their_net > my_net)     # if their net > our net → hostile
-#             prey_mask = non_pack_mask & (my_net    > their_net)  # if our net > their net → prey
-
-
-#             hostiles = valid[host_mask]
-#             if hostiles.size > 0:
-#                 center = coords[hostiles].mean(axis=0)
-#                 move_vec += (pos - center)
-#             else:
-#                 prey = valid[prey_mask]
-#                 if prey.size > 0:
-#                     center = coords[prey].mean(axis=0)
-#                     move_vec += (center - pos)
-#                 else:
-#                     # c) cohesion + gentle separation
-#                     if pack_mates.size > 0:
-#                         center = coords[pack_mates].mean(axis=0)
-#                         move_vec += (center - pos)
-
-#                         dists = coords[pack_mates] - pos
-#                         norms = np.linalg.norm(dists, axis=1)
-#                         close = norms < SEPARATION_RADIUS
-#                         if close.any():
-#                             repulse = -np.mean(dists[close], axis=0)
-#                             move_vec += repulse * SEPARATION_WEIGHT
-
-#             #print(move_vec, 'pre pack move arr 1111')
-#             move_vec += avoidance_arr[index]
-#             #print(move_vec, 'post array of pack move 2222')
-
-#             # normalize & scale by speed
-#             norm = np.linalg.norm(move_vec)
-#             step = (move_vec / norm) * \
-#                 my_speed if norm > 0 else np.zeros(2, np.float32)
-
-#             new = pos + step
-#             new[0] = np.clip(new[0], 0, width - 1)
-#             new[1] = np.clip(new[1], 0, length - 1)
-#             return new
-    
-#     return np.array(
-#         [
-#             move_pack_behavior(
-#                 organisms[pack_flag], 
-#                 i, 
-#                 coords[i], 
-#                 neighs[i], 
-#                 width, 
-#                 length,
-#                 avoidance_vec
-#             ) 
-#             for i in range(organisms.shape[0])
-#         ], 
-#         dtype=np.float32
-#     )
+def random_name_generation(
+    num_to_gen:     int,
+    min_syllables:  int = 2,
+    max_syllables:  int = 4
+) -> np.ndarray:
+    """
+    Generate `num_to_gen` random species names and return them as a NumPy array.
+    """
+    syllables = [
+        'ar', 'en', 'ex', 'ul', 'ra', 'zo', 'ka', 'mi',
+        'to', 'lu', 'qui', 'fa', 'ne', 'si', 'ta', 'or',
+        'an', 'el', 'is', 'ur', 'in', 'ox', 'al', 'om'
+    ]
+    names = []
+    for _ in range(num_to_gen):
+        count = random.randint(min_syllables, max_syllables)
+        name = ''.join(random.choice(syllables) for _ in range(count)).capitalize()
+        names.append(name)
+    return np.array(names, dtype='U15')

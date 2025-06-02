@@ -24,6 +24,7 @@ def minimal_gene_pool():
     return {
         'diet_type':          ['Herb', 'Omni', 'Carn', 'Photo', 'Parasite'],
         'reproduction_type':  ['Sexual', 'Asexual'],
+        'max_age':            (15,30),
         'size':               (0.9, 1.1),
         'camouflage':         (30.0, 60.0),
         'defense':            (3.0, 6.0),
@@ -48,14 +49,14 @@ def test_initialize_default_traits_valid_minimum(minimal_gene_pool):
     # n >= 1 should work
     n = 1
     traits = initialize_default_traits(n, minimal_gene_pool)
-    # should return exactly 19 arrays
-    assert len(traits) == 19
+    # should return exactly 21 arrays
+    assert len(traits) == 21
 
     species_arr, size_arr, camouflage_arr, defense_arr, attack_arr, \
     vision_arr, metabolism_rate_arr, nutrient_efficiency_arr, diet_type_arr, \
     fertility_rate_arr, offspring_count_arr, reproduction_type_arr, \
     pack_behavior_arr, symbiotic_arr, swim_arr, walk_arr, fly_arr, \
-    speed_arr, energy_arr = traits
+    speed_arr, energy_arr, current_age_arr, max_age_arr = traits
 
     # all arrays length == n and correct dtype
     assert species_arr.shape == (1,) and species_arr.dtype.kind == 'U'
@@ -79,14 +80,14 @@ def test_initialize_default_traits_invalid_n_raises(minimal_gene_pool):
 def test_initialize_random_traits_valid(minimal_gene_pool):
     n = 100
     traits = initialize_random_traits(n, minimal_gene_pool)
-    assert len(traits) == 19
+    assert len(traits) == 21
 
     # unpack just a few to spot-check
     _, size_arr, _, _, attack_arr, \
     vision_arr, _, _, diet_type_arr, \
     _, offspring_count_arr, reproduction_type_arr, \
     pack_behavior_arr, _, swim_arr, walk_arr, fly_arr, \
-    speed_arr, energy_arr = traits
+    speed_arr, energy_arr, current_age_arr, max_age_arr = traits
 
     # shapes & types
     assert size_arr.shape == (n,) and size_arr.dtype == np.float32
@@ -102,6 +103,7 @@ def test_initialize_random_traits_valid(minimal_gene_pool):
     assert speed_arr.max() <= minimal_gene_pool['speed'][1]
     assert energy_arr.min() >= 10.0
     assert energy_arr.max() <= 30.0
+    assert (current_age_arr == np.zeros(current_age_arr.shape[0]).astype(np.int8)).all()
 
     # categorical subsets
     assert set(diet_type_arr).issubset(set(minimal_gene_pool['diet_type']))

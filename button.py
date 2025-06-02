@@ -2,7 +2,9 @@
 import pygame
 import pickle
 from tkinter import filedialog
-
+from io import StringIO
+from Bio import Phylo
+import matplotlib.pyplot as plt
 BUTTON_WIDTH = 150
 BUTTON_HEIGHT = 35
 BUTTON_X = 10
@@ -90,7 +92,53 @@ class Button:
         with open(filename, "rb") as f:
             data = pickle.load(f)
         return data['env'], data['timestep']
+    
+    def skip_5_frames(self):
+        pass
 
+    def print_phylo_tree(self, env,
+                        full_output: str = "my_tree.nwk",
+                        collapsed_output: str = "my_tree_collapsed.nwk"):
+        """
+        Save full and collapsed phylogenetic trees to .nwk files,
+        render them, and save them as .png images with the same names.
+        """
+
+        tracker = env.get_organisms().get_lineage_tracker()
+
+        # --- Full tree ---
+        full_str = tracker.full_forest_newick()
+        full_tree = Phylo.read(StringIO(full_str), "newick")
+        Phylo.write(full_tree, full_output, "newick")
+        print(f"Saved full Newick tree to {full_output!r}")
+
+        # Save image
+        fig1 = plt.figure(figsize=(10, 8))
+        ax1 = fig1.add_subplot(1, 1, 1)
+        Phylo.draw(full_tree, do_show=False, axes=ax1)
+        full_img = full_output.rsplit(".", 1)[0] + ".png"
+        plt.savefig(full_img)
+        plt.close(fig1)
+        print(f"Saved full tree image to {full_img!r}")
+
+        # ASCII
+        print("\nASCII representation of the full phylogenetic tree:\n")
+        Phylo.draw_ascii(full_tree)
+
+        # --- Collapsed tree ---
+        collapsed_str = tracker.collapsed_species_tree()
+        collapsed_tree = Phylo.read(StringIO(collapsed_str), "newick")
+        Phylo.write(collapsed_tree, collapsed_output, "newick")
+        print(f"Saved collapsed Newick tree to {collapsed_output!r}")
+
+        # Save image
+        fig2 = plt.figure(figsize=(10, 8))
+        ax2 = fig2.add_subplot(1, 1, 1)
+        Phylo.draw(collapsed_tree, do_show=False, axes=ax2)
+        collapsed_img = collapsed_output.rsplit(".", 1)[0] + ".png"
+        plt.savefig(collapsed_img)
+        plt.close(fig2)
+        print(f"Saved collapsed tree image to {collapsed_img!r}")
 
 # Portable functions to create the required button styles
 def create_stop_start_button(screen, font, text="START", color=(50, 200, 50), x_offset=0):
@@ -140,3 +188,11 @@ def create_flood_button(screen, font, x_offset=0):
     """
     return Button(pygame.Rect(x_offset, 450, BUTTON_WIDTH, BUTTON_HEIGHT),
                     "FLOOD", screen, color=(139, 0, 0), font=font)
+
+def create_make_tree_button(screen, font, x_offset=0):
+    """
+    Draws a button with text
+    Returns rectangle object for mouse click check
+    """
+    return Button(pygame.Rect(x_offset, 500, BUTTON_WIDTH, BUTTON_HEIGHT),
+                  "Print Tree", screen, color=(139,0,0), font=font)

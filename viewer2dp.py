@@ -50,7 +50,7 @@ class Viewer2D:
         self.scale_x = self.main_area[0] / self.env.get_width()
         self.scale_y = self.main_area[1] / self.env.get_length()
 
-        # Flag for running state, used by start/stop button
+        # Flag for running state, used by start/stop buttona
         self._running = True
 
         # Creates reference to button objects for use in draw/handle_event functions
@@ -73,6 +73,7 @@ class Viewer2D:
         self._radioactive_button = create_radioactive_button(self.screen, self.font, x_offset)
         self._drought_button = create_drought_button(self.screen, self.font, x_offset)
         self._flood_button = create_flood_button(self.screen, self.font, x_offset)
+        self._print_tree_button = create_make_tree_button(self.screen, self.font, x_offset)
         self._meteor_struck = False
         self._species_colors = {}
         self._ring_radius = 1
@@ -107,6 +108,7 @@ class Viewer2D:
         self._save_button.draw_button()
         self._load_button.draw_button()
         self._skip_button.draw_button()
+        self._print_tree_button.draw_button()
         self._hazard_button.draw_button()
         self._custom_organism_button.draw_button()
         self.slider.draw(self.screen)
@@ -268,8 +270,9 @@ class Viewer2D:
             txt = self.font.render(f"{label}: {val}", True, (255, 255, 255))
             self.screen.blit(txt, (10,y))
             y += 20
-        
+
         species_array = orgs['species'][alive_mask]
+        diet_array = orgs['diet_type'][alive_mask]
         if species_array.size > 0:
             uniq, counts = np.unique(species_array, return_counts=True)
             
@@ -282,8 +285,19 @@ class Viewer2D:
             for idx in order:
                 sp    = uniq[idx]
                 cnt   = counts[idx]
-                line  = self.font.render(f"{sp}: {cnt}", True, (200,200,200))
-                self.screen.blit(line, (20,y))
+                diet  = diet_array[idx]
+                
+                # Ensure string
+                sp_str = sp.decode() if isinstance(sp, bytes) else sp
+                color = self._generate_species_color(sp_str)
+
+                # Draw color box
+                box_rect = pygame.Rect(20, y + 4, 12, 12)  # small box (x, y, w, h)
+                pygame.draw.rect(self.screen, color, box_rect)
+
+                # Draw text next to the box
+                line = self.font.render(f"{sp_str}: {cnt} | {diet}", True, (200, 200, 200))
+                self.screen.blit(line, (40, y))
                 y += 20
         
         
@@ -311,7 +325,7 @@ class Viewer2D:
         Display generation counter
         """
         gen_text = self.font.render(
-            f"Generation: {self.timestep}", True, (255, 255, 255)
+            f"Generation: {self.env.get_generation()}", True, (255, 255, 255)
         )
         self.screen.blit(gen_text, (10, 10))
 
@@ -473,7 +487,7 @@ class Viewer2D:
                     if saved_env is not None:
                         self.env = saved_env
                         self.timestep = saved_timestep
-
+        
                 if self._hazard_button.get_rectangle().collidepoint(event.pos):             # Create environment hazard
                     self._meteor_struck = True
                     if self.env.get_meteor().get_landed():
@@ -498,11 +512,18 @@ class Viewer2D:
                     self.env.flood()
                     self._flood = True
                     self._drought = False
-                    
+
+                if self._print_tree_button.get_rectangle().collidepoint(event.pos):
+                    self._print_tree_button.print_phylo_tree(self.env)
+                
+                if self._skip_button.get_rectangle().collidepoint(event.pos):
+                    self.skip_frames(50)
+
             # Clock tick rate slider
             self.slider.handle_event(event)
 
-                # TODO: Add the following button for creating a phylogenetic tree.
-                # tree = Phylo.read((StringIO(self.env.get_organisms().get_lineage_tracker().full_forest_newick())), "newick")
-                # Phylo.write(tree, "my_tree.nwk", "newick")
         return True
+    
+    def skip_frames(self, input:int):
+        for i in range (input):
+            self.env.step()

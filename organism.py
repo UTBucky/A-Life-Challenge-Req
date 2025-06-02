@@ -57,10 +57,13 @@ class Organisms:
         ('energy',            np.float32),
         ('x_pos',             np.float32),
         ('y_pos',             np.float32),
+
             # — Lineage tracking —
         ('p_id',                  np.int32),
         ('c_id',                  np.int32),
         ('generation',            np.int32),
+        ('current_age',               np.int8),
+        ('max_age',           np.int8)
     ])
 
     def __init__(self, env: object, O_CLASS = ORGANISM_CLASS):
@@ -262,13 +265,13 @@ class Organisms:
         nearest_idx  = idxs[:, 1]
 
         #Keep this for later, it's turned off right now
-        same_species = orgs['species'] == orgs['species'][nearest_idx]
+        same_diet = orgs['diet_type'] == orgs['diet_type'][nearest_idx]
 
         # only apply the proximity rule when it's the same species:
         # — if same_species AND too close ⇒ unsafe (False)
         # — otherwise ⇒ safe (True)
         # NOT CURRENTLY APPLIED, NEED TO ADD   | (~same_species)
-        safe_mask = (nearest_dist >= REPRODUCTION_PROXIMITY_CONST)
+        safe_mask = (nearest_dist >= REPRODUCTION_PROXIMITY_CONST) | (~same_diet)
 
         # Identify parents with enough energy
         energy = orgs['energy']
@@ -356,6 +359,8 @@ class Organisms:
 
                 # — Energy state —
                 energy_arr,
+                current_age_arr,
+                max_age_arr,
             ) = initialize_user_traits(n, user_genes)
 
         elif randomize:
@@ -390,6 +395,8 @@ class Organisms:
 
                 # — Energy state —
                 energy_arr,
+                current_age_arr,
+                max_age_arr,
             ) = initialize_random_traits(n, self._gene_pool)
         else:
             (
@@ -425,6 +432,8 @@ class Organisms:
 
                 # — Energy state —
                 energy_arr,
+                current_age_arr,
+                max_age_arr,
             ) = initialize_default_traits(n, self._gene_pool)
 
         # — Pick random positions and filter to valid terrain cells —
@@ -476,6 +485,8 @@ class Organisms:
 
             # state
             energy_arr,
+            current_age_arr,
+            max_age_arr,
         )
         # positions is int32 → cast to float32 for x_pos/y_pos
         positions_f = positions.astype(np.float32)
@@ -593,7 +604,7 @@ class Organisms:
         avoid_land, avoid_water = self.compute_terrain_avoidance(coords)
 
         # Calculate new positions - currently passes alot of memory outside the class
-        new_pos = movement_compute(
+        new_pos = unified_movement_compute(
             orgs, 
             coords, 
             neigh_lists, 
@@ -824,16 +835,16 @@ class Organisms:
             idx_i = i[host]
             idx_j = j[host]
             dmg   = their_net[host]
-            energy[idx_i] -= 20 * dmg
-            energy[idx_j] += 20 * dmg
+            energy[idx_i] -= 2 * dmg
+            energy[idx_j] += 2 * dmg
 
         # Prey: i attacked j, damage = my_net
         if prey.any():
             idx_i = i[prey]
             idx_j = j[prey]
             dmg   = my_net[prey]
-            energy[idx_j] -= 20 * dmg
-            energy[idx_i] += 20 * dmg
+            energy[idx_j] -= 2 * dmg
+            energy[idx_i] += 2 * dmg
 
     def kill_border(self, margin: float = 0.01):
         """
@@ -871,7 +882,7 @@ class Organisms:
         """
 
         # Retrieves which organisms are dead and updates death counter
-        dead_mask = (self._organisms['energy'] <= 0)
+        dead_mask = (self._organisms['energy'] <= 0) | (self._organisms['current_age'] >= self._organisms['max_age'])
         self._env.add_deaths(np.count_nonzero(dead_mask))
         # The dead are removed from the organisms array
         survivors = self._organisms[~dead_mask]
@@ -957,6 +968,8 @@ class Organisms:
 
             # — Energy state —
             energy_arr,
+            current_age_arr,
+            max_age_arr,
         ) = initialize_random_traits(self._organisms.shape[0], self._gene_pool)
 
         # Apply new genes to organisms
@@ -994,6 +1007,8 @@ class Organisms:
 
             # state
             energy_arr,
+            current_age_arr,
+            max_age_arr,
         )
 
         new_names = random_name_generation(self._organisms.shape[0])
@@ -1018,4 +1033,4 @@ def random_name_generation(
         count = random.randint(min_syllables, max_syllables)
         name = ''.join(random.choice(syllables) for _ in range(count)).capitalize()
         names.append(name)
-    return np.array(names)
+    return np.array(names, dtype='U15')

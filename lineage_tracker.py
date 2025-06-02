@@ -147,3 +147,59 @@ class LineageTracker:
 
         return '(' + ','.join(parts) + ');'
 
+    def collapsed_species_tree(self) -> str:
+        """
+        Collapse all subtrees where all descendants belong to the same species.
+        Replace such subtrees with a single node labeled by the species name.
+        It ends up showing the most recent common ancestor instead (MRCA)
+        """
+        from collections import defaultdict
+
+        # Step 1: Map each species to its descendant organism IDs
+        species_to_ids = defaultdict(set)
+        for cid, node in self._nodes.items():
+            species_to_ids[node.species].add(cid)
+
+        # Step 2: Identify MRCAs to collapse
+        def trace_ancestors(cid):
+            path = []
+            while cid in self._nodes:
+                path.append(cid)
+                cid = self._nodes[cid].p_id
+            return path
+
+        def find_mrca(c_ids: Set[int]) -> int:
+            ancestor_lists = [trace_ancestors(cid) for cid in c_ids]
+            common = set(ancestor_lists[0])
+            for lst in ancestor_lists[1:]:
+                common &= set(lst)
+            return max(common, key=lambda cid: self._nodes[cid].birth_generation)
+
+        collapsed_nodes = {}
+        for species, ids in species_to_ids.items():
+            if len(ids) < 2:
+                continue  # nothing to collapse
+            try:
+                mrca = find_mrca(ids)
+                collapsed_nodes[mrca] = species
+            except:
+                pass
+
+        # Step 3: Recursive Newick generation, pruning at MRCAs
+        def dfs(cid):
+            if cid in collapsed_nodes:
+                return collapsed_nodes[cid]
+            children = self._children.get(cid, [])
+            if not children:
+                return self._nodes[cid].species
+            parts = [dfs(child) for child in children]
+            return f"({','.join(parts)}){self._nodes[cid].species}"
+
+        # Step 4: Start from global roots and species roots
+        root_ids = set(self._global_roots)
+        for roots in self._species_roots.values():
+            root_ids.update(roots)
+        ordered_roots = sorted([cid for cid in root_ids if cid in self._nodes],
+                            key=lambda cid: self._nodes[cid].birth_generation)
+
+        return '(' + ','.join(dfs(root) for root in ordered_roots) + ');'

@@ -58,6 +58,12 @@ def load_genes_from_file(filename=file_path) -> dict:
             gene_pool["reproduction"]["offspring_count"]["max"]
         )
         gene_dict["reproduction_type"] = gene_pool["reproduction"]["reproduction_type"]
+        values = gene_pool["reproduction"]["max_age"]
+        min_vals = values["min"]
+        max_vals = values["max"]
+        keys = ["max_age"]
+        for i, key in enumerate(keys):
+            gene_dict[key] = (min_vals[i], max_vals[i])
 
     # Behavioral genes
     if "behavioral" in gene_pool:

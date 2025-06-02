@@ -3,7 +3,7 @@ from tkinter import ttk, messagebox, filedialog
 import json
 
 def run_popup():
-    with open("gene_settings.json") as f:
+    with open("custom_org_ranges.json") as f:
         settings = json.load(f)
 
     gene_pool = settings["gene_pool"]
@@ -14,6 +14,8 @@ def run_popup():
     meta_max = gene_pool["metabolic"]["numeric"]["max"]
     rep = gene_pool["reproduction"]
     locomotion = gene_pool["locomotion"]
+    age_min = rep["max_age"]["min"][0]
+    age_max = rep["max_age"]["max"][0]
 
     hint_map = {
         "Size": f"[{morph_min[0]} – {morph_max[0]}]",
@@ -25,6 +27,7 @@ def run_popup():
         "Nutrient Efficiency": f"[{meta_min[1]} – {meta_max[1]}]",
         "Fertility Rate": f"[{rep['fertility_rate']['min']} – {rep['fertility_rate']['max']}]",
         "Offspring Count": f"[{rep['offspring_count']['min']} – {rep['offspring_count']['max']}]",
+        "Max Age": f"[{age_min} – {age_max}]",
         "Speed": f"[{locomotion['speed']['min']} – {locomotion['speed']['max']}]",
     }
 
@@ -99,6 +102,11 @@ def run_popup():
                 highlight("Offspring Count")
                 errors += 1
 
+            max_age = int(max_age_var.get())
+            if not (age_min <= max_age <= age_max):
+                highlight("Max Age")
+                errors += 1
+
             locomotion = gene_pool["locomotion"]
             if not (locomotion["speed"]["min"] <= speed <= locomotion["speed"]["max"]):
                 highlight("Speed")
@@ -128,6 +136,7 @@ def run_popup():
                 "walk": walk_var.get(),
                 "fly": fly_var.get(),
                 "speed": speed,
+                "max_age": max_age,
             }
 
             count = int(count_var.get())
@@ -154,23 +163,24 @@ def run_popup():
 
     # Field variables
     species_var = tk.StringVar(value="New Species")
-    size_var = tk.StringVar(value="1.1")
-    camouflage_var = tk.StringVar(value="60")
+    size_var = tk.StringVar(value="1.0")
+    camouflage_var = tk.StringVar(value="0.5")
     defense_var = tk.StringVar(value="6")
     attack_var = tk.StringVar(value="6")
-    vision_var = tk.StringVar(value="70")
+    vision_var = tk.StringVar(value="10")
     metabolism_var = tk.StringVar(value="1.5")
-    nutrient_var = tk.StringVar(value="1.6")
+    nutrient_var = tk.StringVar(value="1.5")
     diet_var = tk.StringVar(value="Omni")
     fertility_var = tk.StringVar(value="1.0")
-    offspring_var = tk.StringVar(value="1")
+    offspring_var = tk.StringVar(value="2")
+    max_age_var = tk.StringVar(value=str(age_max))
     reproduction_var = tk.StringVar(value="Asexual")
     pack_var = tk.StringVar(value="False")
     symbiotic_var = tk.StringVar(value="False")
     swim_var = tk.StringVar(value="True")
     walk_var = tk.StringVar(value="True")
     fly_var = tk.StringVar(value="True")
-    speed_var = tk.StringVar(value="5")
+    speed_var = tk.StringVar(value="2")
     count_var = tk.StringVar(value="1")
 
     fields = [
@@ -185,6 +195,7 @@ def run_popup():
         ("Diet Type", diet_var, ttk.Combobox, ["Herb", "Omni", "Carn", "Photo", "Parasite"]),
         ("Fertility Rate", fertility_var, tk.Entry),
         ("Offspring Count", offspring_var, tk.Entry),
+        ("Max Age", max_age_var, tk.Entry),
         ("Reproduction Type", reproduction_var, ttk.Combobox, ["Asexual", "Asexual"]),
         ("Pack Behavior", pack_var, ttk.Combobox, ["True", "False"]),
         ("Symbiotic", symbiotic_var, ttk.Combobox, ["True", "False"]),

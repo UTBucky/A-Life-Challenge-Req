@@ -507,9 +507,13 @@ class Viewer2D:
                     self._print_tree_button.print_phylo_tree(self.env)
                 
                 if self._skip_button.get_rectangle().collidepoint(event.pos):
-                    self.skip_frames(5)
+                    self.skip_frames(50)
 
             # Clock tick rate slider
             self.slider.handle_event(event)
 
         return True
+    
+    def skip_frames(self, input:int):
+        for i in range (input):
+            self.env.step()

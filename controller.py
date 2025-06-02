@@ -5,12 +5,7 @@ from load_genes import load_genes_from_file
 from hazard import Meteor
 
 
-# Variables for setup/testing
-GRID_SIZE = 1000         # Determines size of environment
-NUM_ORGANISMS = 100    # Attempt organism creation this many times
-
-
-def main():
+def controller(GRID_SIZE, NUM_ORGANISMS, MUTATION_RATE):
     # Initialize environment
     env = Environment(GRID_SIZE, GRID_SIZE)
 
@@ -23,12 +18,14 @@ def main():
     gene_pool = load_genes_from_file()
     env.get_organisms().load_genes(gene_pool)
     number_of_organisms = int(NUM_ORGANISMS)
+    env.get_organisms().set_mutation_rate(MUTATION_RATE)
     env.get_organisms().spawn_initial_organisms(number_of_organisms, True)
 
     # Initialize meteor hazard with random location and passes it to env
     meteor = Meteor()
     terrain = env.get_terrain()
     meteor.determine_random_location(env.get_width(), env.get_length(), terrain)
+    meteor.launch_from(start_x=meteor.get_x_pos(), start_y=0)
     env.set_meteor(meteor)
 
     # Initialize PyGame visualization
@@ -43,7 +40,4 @@ def main():
         if viewer.is_running():
             # Need to call step on env attached to the viewer if loading a saved state
             viewer.get_env().step()                       # Progresses simulation 1 gen
-            viewer.draw_screen()                    # Renders environment
-
-if __name__ == "__main__":
-    main()
+        viewer.draw_screen()                    # Renders environment

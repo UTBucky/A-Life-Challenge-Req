@@ -20,11 +20,7 @@
     "reproduction": {
       "fertility_rate": { "min": 0.9, "max": 1.0 },
       "offspring_count": { "min": 1,   "max": 10  },
-      "reproduction_type": ["Sexual", "Asexual"],
-      "max_age": {
-        "min": [15],
-        "max": [30]
-      }
+      "reproduction_type": ["Asexual", "Asexual"]
     },
 
     "behavioral": {

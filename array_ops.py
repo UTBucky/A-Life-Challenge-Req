@@ -792,10 +792,12 @@ def unified_movement_compute(
                 width,
                 length,
                 avoidance_vec
-            )
-            for i in standard_idxs
-        ], dtype=np.float32)
-        
+            ) 
+            for i in range(organisms.shape[0])
+        ], 
+        dtype=np.float32
+    )
+
     if pack_idxs.size:
         new_positions[pack_idxs] = np.array([
             move_pack_behavior(
@@ -812,6 +814,133 @@ def unified_movement_compute(
 
     return new_positions
 
+# Returns new arrays
+def initialize_user_traits(
+    n: int,
+    gene_pool: Dict
+) -> Tuple[
+    np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray,
+    np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray,
+    np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray,
+    np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray
+]:
+    """
+    Create randomized trait arrays for n organisms based on gene_pool.
+    Returns:
+    --------
+    In order within a tuple:
+    - species_arr              : Species label (default "ORG").
+    - size_arr                 : Organism size.
+    - camouflage_arr           : Camouflage effectiveness.
+    - defense_arr              : Defensive capabilities.
+    - attack_arr               : Attack strength.
+    - vision_arr               : Vision radius.
+    - metabolism_rate_arr      : Rate of metabolic consumption.
+    - nutrient_efficiency_arr  : Efficiency in processing food.
+    - diet_type_arr            : Type of diet.
+    - fertility_rate_arr       : Rate of fertility.
+    - offspring_count_arr      : Number of offspring per reproduction.
+    - reproduction_type_arr    : Method of reproduction.
+    - pack_behavior_arr        : Whether it displays pack behavior.
+    - symbiotic_arr            : Whether it exhibits symbiotic behavior.
+    - swim_arr                 : Capability to swim.
+    - walk_arr                 : Capability to walk.
+    - fly_arr                  : Capability to fly.
+    - speed_arr                : Movement speed.
+    - energy_arr               : Initial energy value.
+    """
+
+    # species label
+    species_arr = np.full((n,), gene_pool["species"], dtype='U15')
+
+
+    # — MorphologicalGenes —
+    size_arr        = np.full((n,), gene_pool["size"], dtype='float32')
+    camouflage_arr  = np.full((n,), gene_pool["camouflage"], dtype='float32')
+    defense_arr     = np.full((n,), gene_pool["defense"], dtype='float32')
+    attack_arr      = np.full((n,), gene_pool["attack"], dtype='float32')
+    vision_arr      = np.full((n,), gene_pool["vision"], dtype='float32')
+
+    # — MetabolicGenes —
+    metabolism_rate_arr     = np.full((n,), gene_pool["metabolism_rate"], dtype='float32')
+    nutrient_efficiency_arr = np.full((n,), gene_pool["nutrient_efficiency"], dtype='float32')
+
+    # diet choice with fixed probabilities
+    # Herb, Omni, Carn, Photo, Parasite
+    diet_type_arr = np.full((n,), gene_pool['diet_type'], dtype='U15')
+
+
+ # ---------------- Reproduction Genes ----------------
+    fertility_rate_arr          = np.full((n,), gene_pool['fertility_rate'], dtype='float32')
+    # TODO Implement multi_offspring creation
+    offspring_count_arr         = np.full((n,), gene_pool['offspring_count'], dtype='int32')
+    # TODO Implement sexual reproduction
+    reproduction_type_arr       = np.full((n,), gene_pool['reproduction_type'], dtype='U15')
+
+    # ---------------- Behavioral Genes ----------------
+    pack_behavior_arr           = np.full((n,), gene_pool['pack_behavior'], dtype='bool')
+    # TODO Implement symbiotic energy distribution
+    symbiotic_arr               = np.full((n,), gene_pool['symbiotic'], dtype='bool')
+
+    # ---------------- Locomotion Genes ----------------
+    swim_arr                    = np.full((n,), gene_pool['swim'], dtype='bool')
+    walk_arr                    = np.full((n,), gene_pool['walk'], dtype='bool')
+    fly_arr                     = np.full((n,), gene_pool['fly'], dtype='bool')
+
+    # ---------------- Speed & Initial Energy ----------------
+    speed_arr  = np.full((n,), gene_pool['speed'], dtype='float32')
+    energy_arr = np.random.uniform(10, 30, size=(n,)).astype(np.float32)
+
+    return (
+        species_arr, size_arr, camouflage_arr, defense_arr, attack_arr,
+        vision_arr, metabolism_rate_arr, nutrient_efficiency_arr,
+        diet_type_arr, fertility_rate_arr, offspring_count_arr,
+        reproduction_type_arr, pack_behavior_arr, symbiotic_arr,
+        swim_arr, walk_arr, fly_arr, speed_arr, energy_arr
+    )
+
+# def pack_movement_compute(
+#     organisms: np.ndarray,
+#     coords: np.ndarray, 
+#     neighs: np.ndarray, 
+#     width:  int, 
+#     length: int,
+#     avoid_land: np.ndarray, 
+#     avoid_water: np.ndarray
+#     ):
+#     (
+#     diet_type, vision, attack, defense, pack_flag, 
+#     species, fly_flag, swim_flag, walk_flag, speed
+#     ) = grab_move_arrays(organisms)
+
+#     avoidance_vec = np.zeros((organisms.shape[0], 2), dtype=np.float32)
+
+#     cannot_fly_swim_mask = (~fly_flag & ~swim_flag)
+#     cannot_fly_walk_mask = (~fly_flag & ~walk_flag)
+    
+#     # === Apply Avoidance Logic Based on Masks ===
+#     # Only apply the terrain avoidance where the mask is True
+#     avoidance_vec[cannot_fly_swim_mask] += WATER_PUSH * avoid_water[cannot_fly_swim_mask]
+#     avoidance_vec[cannot_fly_walk_mask] += LAND_PUSH * avoid_land[cannot_fly_walk_mask]
+
+#     def move_pack_behavior(orgs, index, pos, neighs, width, length, avoidance_arr):
+#         my = orgs[index]
+#         my_diet = my['diet_type']
+#         my_cam = my['camouflage']
+#         my_att = my['attack']
+#         my_def = my['defense']
+#         my_spc = my['species']
+#         my_fly = my['fly']
+#         my_pack = pack_flag[index]
+#         my_speed = speed[index]
+
+#         neighs = np.asarray(neighs, dtype=int)
+#         mask_valid = (neighs != index) & (vision[neighs] >= my_cam)
+#         valid = neighs[mask_valid]
+
+#         # 2) pack_mates if pack_behavior array isn’t empty
+#         if pack_flag.shape[0] > 0:
+#             pack_mates = valid[pack_flag[valid]]
 
 def random_name_generation(
     num_to_gen:     int,

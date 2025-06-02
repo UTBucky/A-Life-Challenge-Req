@@ -1,5 +1,5 @@
-import numpy as np
-from scipy.spatial import cKDTree
+# import numpy as np
+# from scipy.spatial import cKDTree
 from scipy.ndimage import distance_transform_edt
 from scipy.ndimage import map_coordinates
 import random
@@ -84,7 +84,7 @@ class Organisms:
         self._length = env.get_length()
         
         #Genes
-        self._mutation_rate = 0.05
+        self._mutation_rate = 0.01
         self._gene_pool = None
         
         # Lineage
@@ -130,6 +130,9 @@ class Organisms:
         return self._lineage_tracker
 
     # Set methods
+    def set_mutation_rate(self, new_rate):
+        self._mutation_rate = new_rate
+
     def set_organisms(self, new_organisms):
         """
         Changes the organisms array within the Organisms object
@@ -193,7 +196,7 @@ class Organisms:
         copy_parent_fields(parents, offspring)
         
         # Chance of mutating traits based on a mask
-        flip_mask = (np.random.rand(num_parents) < 0.01).astype(bool)
+        flip_mask = (np.random.rand(num_parents) < self._mutation_rate).astype(bool)
         if flip_mask.any():
             names = random_name_generation(flip_mask.sum())
             offspring['species'][flip_mask] = names
@@ -306,7 +309,8 @@ class Organisms:
 
     def spawn_initial_organisms(self, 
         number_of_organisms:    int,
-        randomize:              bool = False
+        randomize:              bool = False,
+        user_genes:             Dict = None
         ) -> int:
         """
         Spawns the initial organisms in the simulation.
@@ -323,8 +327,41 @@ class Organisms:
         env_terrain = self._env.get_terrain()
         n = number_of_organisms
 
+        if user_genes is not None:
+            (
+                # — Morphological traits —
+                species_arr,
+                size_arr,
+                camouflage_arr,
+                defense_arr,
+                attack_arr,
+                vision_arr,
 
-        if randomize:
+                # — Metabolic parameters —
+                metabolism_rate_arr,
+                nutrient_efficiency_arr,
+                diet_type_arr,
+
+                # — Reproduction settings —
+                fertility_rate_arr,
+                offspring_count_arr,
+                reproduction_type_arr,
+
+                # — Social behaviors —
+                pack_behavior_arr,
+                symbiotic_arr,
+
+                # — Locomotion capabilities —
+                swim_arr,
+                walk_arr,
+                fly_arr,
+                speed_arr,
+
+                # — Energy state —
+                energy_arr,
+            ) = initialize_user_traits(n, user_genes)
+
+        elif randomize:
             (
                 # — Morphological traits —
                 species_arr,
@@ -894,6 +931,83 @@ class Organisms:
         # Set energy of all in radius to 0 — instant death
         self._organisms['energy'][indices] = 0
         print(f"[Meteor] Killed {len(indices)} organisms.")
+
+    def apply_radioactive_wave(self):
+
+        # Generate random genes for all organisms
+        (
+            # — Morphological traits —
+            species_arr,
+            size_arr,
+            camouflage_arr,
+            defense_arr,
+            attack_arr,
+            vision_arr,
+
+            # — Metabolic parameters —
+            metabolism_rate_arr,
+            nutrient_efficiency_arr,
+            diet_type_arr,
+
+            # — Reproduction settings —
+            fertility_rate_arr,
+            offspring_count_arr,
+            reproduction_type_arr,
+
+            # — Social behaviors —
+            pack_behavior_arr,
+            symbiotic_arr,
+
+            # — Locomotion capabilities —
+            swim_arr,
+            walk_arr,
+            fly_arr,
+            speed_arr,
+
+            # — Energy state —
+            energy_arr,
+        ) = initialize_random_traits(self._organisms.shape[0], self._gene_pool)
+
+        # Apply new genes to organisms
+        copy_valid_count(
+            self._organisms,
+            self._organisms.shape[0],
+
+            # morphological traits
+            species_arr,
+            size_arr,
+            camouflage_arr,
+            defense_arr,
+            attack_arr,
+            vision_arr,
+
+            # metabolic characteristics
+            metabolism_rate_arr,
+            nutrient_efficiency_arr,
+            diet_type_arr,
+
+            # reproduction parameters
+            fertility_rate_arr,
+            offspring_count_arr,
+            reproduction_type_arr,
+
+            # behaviors
+            pack_behavior_arr,
+            symbiotic_arr,
+
+            # movement capabilities
+            swim_arr,
+            walk_arr,
+            fly_arr,
+            speed_arr,
+
+            # state
+            energy_arr,
+        )
+
+        new_names = random_name_generation(self._organisms.shape[0])
+
+        self._organisms['species'] = new_names
 
 def random_name_generation(
     num_to_gen:     int,

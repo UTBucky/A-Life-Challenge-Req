@@ -286,8 +286,18 @@ class Viewer2D:
                 sp    = uniq[idx]
                 cnt   = counts[idx]
                 diet  = diet_array[idx]
-                line  = self.font.render(f"{sp}: {cnt} | {diet}", True, (200,200,200))
-                self.screen.blit(line, (20,y))
+                
+                # Ensure string
+                sp_str = sp.decode() if isinstance(sp, bytes) else sp
+                color = self._generate_species_color(sp_str)
+
+                # Draw color box
+                box_rect = pygame.Rect(20, y + 4, 12, 12)  # small box (x, y, w, h)
+                pygame.draw.rect(self.screen, color, box_rect)
+
+                # Draw text next to the box
+                line = self.font.render(f"{sp_str}: {cnt} | {diet}", True, (200, 200, 200))
+                self.screen.blit(line, (40, y))
                 y += 20
         
         

@@ -58,7 +58,7 @@ class Viewer2D:
         slider_y = 600  # Or set just below your last button
         self.slider = Slider(x=slider_x, y=slider_y, height=100, min_val=1, max_val=60, start_val=30)
 
-        self.tick_rate = 30
+        self.tick_rate = 5
         
         x_offset = self.window_size[0] - self.sidebar_width + (self.sidebar_width - BUTTON_WIDTH) // 2
         initial_text = "PAUSE" if self._running else "START"

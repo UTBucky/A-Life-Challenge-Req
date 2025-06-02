@@ -73,6 +73,7 @@ class Viewer2D:
         self._radioactive_button = create_radioactive_button(self.screen, self.font, x_offset)
         self._drought_button = create_drought_button(self.screen, self.font, x_offset)
         self._flood_button = create_flood_button(self.screen, self.font, x_offset)
+        self._print_tree_button = create_make_tree_button(self.screen, self.font, x_offset)
         self._meteor_struck = False
         self._species_colors = {}
         self._ring_radius = 1
@@ -501,9 +502,6 @@ class Viewer2D:
                     self.env.flood()
                     self._flood = True
                     self._drought = False
-                    
-            # Clock tick rate slider
-            self.slider.handle_event(event)
 
                 if self._print_tree_button.get_rectangle().collidepoint(event.pos):
                     self._print_tree_button.print_phylo_tree(self.env)
@@ -511,8 +509,7 @@ class Viewer2D:
                 if self._skip_button.get_rectangle().collidepoint(event.pos):
                     self.skip_frames(5)
 
-        return True
+            # Clock tick rate slider
+            self.slider.handle_event(event)
 
-    def skip_frames(self, n):
-        for i in range(n):
-            self.env.step()
+        return True

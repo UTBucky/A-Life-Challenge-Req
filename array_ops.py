@@ -793,7 +793,7 @@ def unified_movement_compute(
                 length,
                 avoidance_vec
             ) 
-            for i in range(organisms.shape[0])
+            for i in standard_idxs
         ], 
         dtype=np.float32
     )
@@ -822,7 +822,8 @@ def initialize_user_traits(
     np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray,
     np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray,
     np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray,
-    np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray
+    np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray,
+    np.ndarray, np.ndarray,
 ]:
     """
     Create randomized trait arrays for n organisms based on gene_pool.
@@ -890,57 +891,18 @@ def initialize_user_traits(
     # ---------------- Speed & Initial Energy ----------------
     speed_arr  = np.full((n,), gene_pool['speed'], dtype='float32')
     energy_arr = np.random.uniform(10, 30, size=(n,)).astype(np.float32)
+    current_age_arr        = np.full((n,), 0, dtype=np.float32)
+    max_age_arr            = np.random.uniform(15, 45, size=(n,)).astype(np.float32)
+    
 
     return (
         species_arr, size_arr, camouflage_arr, defense_arr, attack_arr,
         vision_arr, metabolism_rate_arr, nutrient_efficiency_arr,
         diet_type_arr, fertility_rate_arr, offspring_count_arr,
         reproduction_type_arr, pack_behavior_arr, symbiotic_arr,
-        swim_arr, walk_arr, fly_arr, speed_arr, energy_arr
+        swim_arr, walk_arr, fly_arr, speed_arr, energy_arr, current_age_arr,
+        max_age_arr,
     )
-
-# def pack_movement_compute(
-#     organisms: np.ndarray,
-#     coords: np.ndarray, 
-#     neighs: np.ndarray, 
-#     width:  int, 
-#     length: int,
-#     avoid_land: np.ndarray, 
-#     avoid_water: np.ndarray
-#     ):
-#     (
-#     diet_type, vision, attack, defense, pack_flag, 
-#     species, fly_flag, swim_flag, walk_flag, speed
-#     ) = grab_move_arrays(organisms)
-
-#     avoidance_vec = np.zeros((organisms.shape[0], 2), dtype=np.float32)
-
-#     cannot_fly_swim_mask = (~fly_flag & ~swim_flag)
-#     cannot_fly_walk_mask = (~fly_flag & ~walk_flag)
-    
-#     # === Apply Avoidance Logic Based on Masks ===
-#     # Only apply the terrain avoidance where the mask is True
-#     avoidance_vec[cannot_fly_swim_mask] += WATER_PUSH * avoid_water[cannot_fly_swim_mask]
-#     avoidance_vec[cannot_fly_walk_mask] += LAND_PUSH * avoid_land[cannot_fly_walk_mask]
-
-#     def move_pack_behavior(orgs, index, pos, neighs, width, length, avoidance_arr):
-#         my = orgs[index]
-#         my_diet = my['diet_type']
-#         my_cam = my['camouflage']
-#         my_att = my['attack']
-#         my_def = my['defense']
-#         my_spc = my['species']
-#         my_fly = my['fly']
-#         my_pack = pack_flag[index]
-#         my_speed = speed[index]
-
-#         neighs = np.asarray(neighs, dtype=int)
-#         mask_valid = (neighs != index) & (vision[neighs] >= my_cam)
-#         valid = neighs[mask_valid]
-
-#         # 2) pack_mates if pack_behavior array isn’t empty
-#         if pack_flag.shape[0] > 0:
-#             pack_mates = valid[pack_flag[valid]]
 
 def random_name_generation(
     num_to_gen:     int,

@@ -359,6 +359,8 @@ class Organisms:
 
                 # — Energy state —
                 energy_arr,
+                current_age_arr,
+                max_age_arr,
             ) = initialize_user_traits(n, user_genes)
 
         elif randomize:
@@ -966,6 +968,8 @@ class Organisms:
 
             # — Energy state —
             energy_arr,
+            current_age_arr,
+            max_age_arr,
         ) = initialize_random_traits(self._organisms.shape[0], self._gene_pool)
 
         # Apply new genes to organisms
@@ -1003,6 +1007,8 @@ class Organisms:
 
             # state
             energy_arr,
+            current_age_arr,
+            max_age_arr,
         )
 
         new_names = random_name_generation(self._organisms.shape[0])

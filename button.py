@@ -172,3 +172,11 @@ def create_flood_button(screen, font, x_offset=0):
     """
     return Button(pygame.Rect(x_offset, 450, BUTTON_WIDTH, BUTTON_HEIGHT),
                     "FLOOD", screen, color=(139, 0, 0), font=font)
+
+def create_make_tree_button(screen, font, x_offset=0):
+    """
+    Draws a button with text
+    Returns rectangle object for mouse click check
+    """
+    return Button(pygame.Rect(x_offset, 500, BUTTON_WIDTH, BUTTON_HEIGHT),
+                  "Print Tree", screen, color=(139,0,0), font=font)

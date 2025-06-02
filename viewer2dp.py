@@ -8,6 +8,7 @@ import hashlib
 import math
 from button import *
 from tk_user_made_species import run_popup
+from pygame_slider import Slider
 
 
 
@@ -41,7 +42,7 @@ class Viewer2D:
 
         # pygames var for rendering, keeps track of time
         self.clock = pygame.time.Clock()
-        self.font = pygame.font.SysFont("Arial", 16)
+        self.font = pygame.font.SysFont("segoeui", 14, bold=True)
         self.timestep = 0
 
         # Scale factors for rendering based on env size vs screen size
@@ -53,9 +54,17 @@ class Viewer2D:
         self._running = True
 
         # Creates reference to button objects for use in draw/handle_event functions
-        x_offset = self.window_size[0] - self.sidebar_width + self.sidebar_width // 3
+        slider_x = self.window_size[0] - self.sidebar_width + (self.sidebar_width - 20) // 2  # Adjust width if needed
+        slider_y = 600  # Or set just below your last button
+        self.slider = Slider(x=slider_x, y=slider_y, height=100, min_val=1, max_val=60, start_val=30)
+
+        self.tick_rate = 30
+        
+        x_offset = self.window_size[0] - self.sidebar_width + (self.sidebar_width - BUTTON_WIDTH) // 2
+        initial_text = "PAUSE" if self._running else "START"
+        initial_color = (200, 50, 50) if self._running else (50, 200, 50)
         self._stop_start_button = create_stop_start_button(
-            self.screen, self.font, self._running, x_offset)
+            self.screen, self.font, text=initial_text, color=initial_color, x_offset=x_offset)
         self._save_button = create_save_button(self.screen, self.font, x_offset)
         self._load_button = create_load_button(self.screen, self.font, x_offset)
         self._skip_button = create_skip_button(self.screen, self.font, x_offset)
@@ -100,12 +109,17 @@ class Viewer2D:
         self._skip_button.draw_button()
         self._hazard_button.draw_button()
         self._custom_organism_button.draw_button()
+        self.slider.draw(self.screen)
+        self.tick_rate = self.slider.get_value()
         self._radioactive_button.draw_button()
         self._drought_button.draw_button()
         self._flood_button.draw_button()
-
-        if self._meteor_struck:             # Checks for hazard button click
-            self.draw_meteor()
+     
+        # Meteor check
+        if self._meteor_struck:
+            meteor = self.env.get_meteor()
+            if meteor:
+                meteor.draw(self.screen, self.scale_x, self.scale_y, self.sidebar_width)
 
         if self._radioactive_started:
             self.env.get_organisms().apply_radioactive_wave()
@@ -129,8 +143,9 @@ class Viewer2D:
 
         pygame.display.flip()
 
-        self.clock.tick(10)
-        self.timestep += 1
+        self.clock.tick(self.tick_rate)
+        if self._running:
+            self.timestep += 1
 
     def draw_terrain(self):
         """
@@ -249,7 +264,7 @@ class Viewer2D:
         avg_energy = np.mean(energies) if energies.size > 0 else 0
 
         y = 50
-        for label, val in [("Births", births),("deaths", deaths), ("Avg_Energy", f"{avg_energy:.2f}")]:
+        for label, val in [("Births", births),("Deaths", deaths), ("Avg. Energy", f"{avg_energy:.2f}")]:
             txt = self.font.render(f"{label}: {val}", True, (255, 255, 255))
             self.screen.blit(txt, (10,y))
             y += 20
@@ -420,18 +435,34 @@ class Viewer2D:
             self._species_colors[species_name] = color
         return self._species_colors[species_name]
 
+    def update_button_hover(self):
+        mouse_pos = pygame.mouse.get_pos()
+        for btn in [
+            self._stop_start_button, self._save_button, self._load_button,
+            self._skip_button, self._hazard_button, self._custom_organism_button
+        ]:
+            btn.check_hover(mouse_pos)
+
     def handle_events(self):
         """
         Pygames method for interactability
         """
+        self.update_button_hover()
+
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 return False
 
             # Button mouse click events (Stop/start, save, load, skip)
             elif event.type == pygame.MOUSEBUTTONDOWN:
-                if self._stop_start_button.get_rectangle().collidepoint(event.pos):         # Start/stop
+                if self._stop_start_button.get_rectangle().collidepoint(event.pos):
                     self._running = not self._running
+                    if self._running:
+                        self._stop_start_button.set_text("PAUSE")
+                        self._stop_start_button.set_color((200, 50, 50))  # red
+                    else:
+                        self._stop_start_button.set_text("START")
+                        self._stop_start_button.set_color((50, 200, 50))  # green
 
                 if self._save_button.get_rectangle().collidepoint(event.pos):               # Save simulation
                     self._save_button.save_simulation_prompt(
@@ -445,16 +476,16 @@ class Viewer2D:
 
                 if self._hazard_button.get_rectangle().collidepoint(event.pos):             # Create environment hazard
                     self._meteor_struck = True
-                    self.apply_meteor_effect()
+                    if self.env.get_meteor().get_landed():
+                        self.apply_meteor_effect()
 
                 if self._custom_organism_button.get_rectangle().collidepoint(event.pos):
                     self._running = False  # Pause the sim
                     gene_dict, count = run_popup()
                     if gene_dict:
-                        for _ in range(count):
-                            # TODO: Creation of custom organism, either before simulation start or adding new orgs
-                            pass
-                
+                        self.env.get_organisms().spawn_initial_organisms(number_of_organisms=count, user_genes=gene_dict)
+                    self._running = True
+        
                 if self._radioactive_button.get_rectangle().collidepoint(event.pos): 
                     self._radioactive = True
                 
@@ -467,6 +498,9 @@ class Viewer2D:
                     self.env.flood()
                     self._flood = True
                     self._drought = False
+                    
+            # Clock tick rate slider
+            self.slider.handle_event(event)
 
                 # TODO: Add the following button for creating a phylogenetic tree.
                 # tree = Phylo.read((StringIO(self.env.get_organisms().get_lineage_tracker().full_forest_newick())), "newick")

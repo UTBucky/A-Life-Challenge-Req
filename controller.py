@@ -25,6 +25,7 @@ def controller(GRID_SIZE, NUM_ORGANISMS, MUTATION_RATE):
     meteor = Meteor()
     terrain = env.get_terrain()
     meteor.determine_random_location(env.get_width(), env.get_length(), terrain)
+    meteor.launch_from(start_x=meteor.get_x_pos(), start_y=0)
     env.set_meteor(meteor)
 
     # Initialize PyGame visualization
@@ -39,4 +40,4 @@ def controller(GRID_SIZE, NUM_ORGANISMS, MUTATION_RATE):
         if viewer.is_running():
             # Need to call step on env attached to the viewer if loading a saved state
             viewer.get_env().step()                       # Progresses simulation 1 gen
-            viewer.draw_screen()                    # Renders environment
+        viewer.draw_screen()                    # Renders environment

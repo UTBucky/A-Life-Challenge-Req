@@ -147,3 +147,42 @@ class LineageTracker:
 
         return '(' + ','.join(parts) + ');'
 
+    def collapsed_species_tree(self) -> str:
+        """
+        Build a Newick string where subtrees with the same species are collapsed into one species node.
+        """
+        def dfs_collapse(cid: int):
+            node = self._nodes[cid]
+            species = node.species
+            children = self._children.get(cid, [])
+
+            if not children:
+                return species, species  # leaf: label = species
+
+            parts = []
+            species_set = set()
+            for child in sorted(children, key=lambda x: self._nodes[x].birth_generation):
+                subtree_str, subtree_species = dfs_collapse(child)
+                parts.append(subtree_str)
+                species_set.add(subtree_species)
+
+            # If all children are the same species → collapse
+            if len(species_set) == 1 and list(species_set)[0] == species:
+                return species, species  # collapse subtree
+            else:
+                return f"({','.join(parts)}){species}", species  # retain structure
+
+        # Use roots like full_forest_newick
+        root_ids = set(self._global_roots)
+        for roots in self._species_roots.values():
+            root_ids.update(roots)
+
+        valid_roots = [rid for rid in root_ids if rid in self._nodes]
+        ordered = sorted(valid_roots, key=lambda cid: self._nodes[cid].birth_generation)
+
+        parts = []
+        for rid in ordered:
+            subtree_str, _ = dfs_collapse(rid)
+            parts.append(subtree_str)
+
+        return '(' + ','.join(parts) + ');'

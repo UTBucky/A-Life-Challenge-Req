@@ -913,4 +913,4 @@ def random_name_generation(
         count = random.randint(min_syllables, max_syllables)
         name = ''.join(random.choice(syllables) for _ in range(count)).capitalize()
         names.append(name)
-    return np.array(names)
+    return np.array(names, dtype='U15')

@@ -6,7 +6,7 @@ import pygame
 import numpy as np
 import hashlib
 from button import create_stop_start_button, create_save_button, create_load_button, create_skip_button, \
-    create_hazard_button, create_custom_organism_button
+    create_hazard_button, create_custom_organism_button, create_make_tree_button
 from tk_user_made_species import run_popup
 
 
@@ -218,7 +218,7 @@ class Viewer2D:
             txt = self.font.render(f"{label}: {val}", True, (255, 255, 255))
             self.screen.blit(txt, (10,y))
             y += 20
-        
+
         species_array = orgs['species'][alive_mask]
         diet_array = orgs['diet_type'][alive_mask]
         if species_array.size > 0:

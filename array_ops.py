@@ -1,6 +1,7 @@
 import numpy as np
 from scipy.spatial import cKDTree
 from typing import Tuple, Dict
+import random
 
 # Terrain avoidance constants
 WATER_PUSH = 0.01
@@ -365,7 +366,7 @@ def initialize_random_traits(
         raise ValueError("Number of traits 'n' must be greater than 0.")
 
     # species label
-    species_arr = np.full((n,), "ORG", dtype='U15')
+    species_arr = random_name_generation(n)
 
     # helper for uniform floats
     def uni(key):
@@ -810,3 +811,24 @@ def unified_movement_compute(
         ], dtype=np.float32)
 
     return new_positions
+
+
+def random_name_generation(
+    num_to_gen:     int,
+    min_syllables:  int = 2,
+    max_syllables:  int = 4
+) -> np.ndarray:
+    """
+    Generate `num_to_gen` random species names and return them as a NumPy array.
+    """
+    syllables = [
+        'ar', 'en', 'ex', 'ul', 'ra', 'zo', 'ka', 'mi',
+        'to', 'lu', 'qui', 'fa', 'ne', 'si', 'ta', 'or',
+        'an', 'el', 'is', 'ur', 'in', 'ox', 'al', 'om'
+    ]
+    names = []
+    for _ in range(num_to_gen):
+        count = random.randint(min_syllables, max_syllables)
+        name = ''.join(random.choice(syllables) for _ in range(count)).capitalize()
+        names.append(name)
+    return np.array(names, dtype='U15')

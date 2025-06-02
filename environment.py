@@ -82,6 +82,8 @@ class Environment:
         if self._generation % 50 == 0 and self._generation > 0:
             tree = Phylo.read((StringIO(self._organisms.get_lineage_tracker().full_forest_newick())), "newick")
             Phylo.write(tree, "my_tree.nwk", "newick")
+            tree = Phylo.read((StringIO(self._organisms.get_lineage_tracker().collapsed_species_tree())), "newick")
+            Phylo.write(tree, "my_tree_collapsed.nwk", "newick")
         self._organisms.build_spatial_index()
         self._organisms.move()
         self._organisms.resolve_attacks()
